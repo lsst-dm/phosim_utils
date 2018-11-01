@@ -5,7 +5,11 @@
 # - Any package whose API is used should be listed explicitly
 #   rather than assuming it will be included recursively.
 setupRequired(sconsUtils)
+setupRequired(obs_lsst)
 
 # The following is boilerplate for all packages.
 # See https://dmtn-001.lsst.io for details on LSST_LIBRARY_PATH.
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+
+# Make sure the bin directory shows up on $PATH
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
