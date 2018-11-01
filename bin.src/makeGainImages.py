@@ -24,6 +24,7 @@
 from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
 
+
 def main():
     camera = PhosimMapper().camera
     for filt_name in 'ugrizy':
@@ -54,7 +55,8 @@ def main():
             # need to be able to specify any filter
             md.set('CALDATE', 53005.0)
             exp.setMetadata(md)
-            exp.writeFits("%(name)s_%(filter)s.fits"%({'name':CHIPID, 'filter':filt_name}))
+            exp.writeFits("%(name)s_%(filter)s.fits"%({'name': CHIPID, 'filter': filt_name}))
+
 
 if __name__ == "__main__":
     main()
