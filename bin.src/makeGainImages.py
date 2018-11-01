@@ -21,11 +21,11 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 
-from lsst.obs.lsstSim import LsstSimMapper
+from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
 
 def main():
-    camera = LsstSimMapper().camera
+    camera = PhosimMapper().camera
     for filt_name in 'ugrizy':
         for ccd in camera:
             name = ccd.getName()
