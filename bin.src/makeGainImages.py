@@ -20,6 +20,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
+import datetime
 
 from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
@@ -54,6 +55,9 @@ def main():
             md.set('EXPTIME', 100)
             # need to be able to specify any filter
             md.set('CALDATE', 53005.0)
+            # Add the CALIB_ID header card
+            md.set('CALIB_ID', 'raftName=%s detectorName=%s detector=%i filter=%s calibDate=%s' %
+                   (CHIPID.split('_')[0], CHIPID.split('_')[1], ccd.getId(), filt_name, datetime.now()))
             exp.setMetadata(md)
             exp.writeFits("%(name)s_%(filter)s.fits"%({'name': CHIPID, 'filter': filt_name}))
 
