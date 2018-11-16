@@ -20,7 +20,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-import datetime
+from datetime import datetime
 
 from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
