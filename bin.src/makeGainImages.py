@@ -21,15 +21,20 @@
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
 from datetime import datetime
+import argparse
 
 from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
 
 
-def main():
+def main(just_wfs=False):
     camera = PhosimMapper().camera
+    if just_wfs:
+        ccd_list = [camera[name] for name in ["R00_S22", "R04_S20", "R44_S00", "R40_S02"]]
+    else:
+        ccd_list = camera
     for filt_name in 'ugrizy':
-        for ccd in camera:
+        for ccd in ccd_list:
             name = ccd.getName()
             # I'm not sure how to deal with the split chips yet.
             if 'A' in name or 'B' in name:
@@ -63,4 +68,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Make fake flats using image gains')
+    parser.add_argument('--just_wfs', action='store_true',
+		        help='Generate fake flats for just wavefront sensing chips.')
+
+    args = parser.parse_args()
+    main(just_wfs=args.just_wfs)
