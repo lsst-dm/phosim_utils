@@ -70,7 +70,7 @@ def main(just_wfs=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Make fake flats using image gains')
     parser.add_argument('--just_wfs', action='store_true',
-		        help='Generate fake flats for just wavefront sensing chips.')
+                        help='Generate fake flats for just wavefront sensing chips.')
 
     args = parser.parse_args()
     main(just_wfs=args.just_wfs)
