@@ -27,12 +27,15 @@ from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
 
 
-def main(just_wfs=False):
+def main(just_wfs=False, detector_list=None):
     camera = PhosimMapper().camera
     if just_wfs:
         ccd_list = [camera[name] for name in ["R00_S22", "R04_S20", "R44_S00", "R40_S02"]]
+    elif (detector_list is not None):
+        ccd_list = [camera[name] for name in detector_list]
     else:
         ccd_list = camera
+
     for filt_name in 'ugrizy':
         for ccd in ccd_list:
             name = ccd.getName()
@@ -71,6 +74,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Make fake flats using image gains')
     parser.add_argument('--just_wfs', action='store_true',
                         help='Generate fake flats for just wavefront sensing chips.')
+    parser.add_argument('--detector_list', nargs='+',
+                        help='Generate fake flats for the detector list. (e.g. R22_S11 R22_S10)')
 
     args = parser.parse_args()
-    main(just_wfs=args.just_wfs)
+    main(just_wfs=args.just_wfs, detector_list=args.detector_list)
