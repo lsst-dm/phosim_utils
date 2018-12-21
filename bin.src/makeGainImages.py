@@ -28,6 +28,10 @@ import lsst.afw.image as afwImage
 
 
 def main(just_wfs=False, detector_list=None):
+
+    if (just_wfs is True) and (detector_list is not None):
+        raise RuntimeError("--just_wfs and --detector_list are exclusive.")
+
     camera = PhosimMapper().camera
     if just_wfs:
         ccd_list = [camera[name] for name in ["R00_S22", "R04_S20", "R44_S00", "R40_S02"]]
