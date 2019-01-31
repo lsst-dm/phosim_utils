@@ -47,7 +47,7 @@ def main(just_wfs=False, detector_list=None):
             if 'A' in name or 'B' in name:
                 continue
             print(name)
-            CHIPID = "".join([c for c in name if c is not "," and c is not ":"])
+            CHIPID = "".join([c for c in name if c != "," and c != ":"])
             CHIPID = "_".join(CHIPID.split())
             image = afwImage.ImageF(ccd.getBBox())
             for amp in ccd:
