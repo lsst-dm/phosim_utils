@@ -44,7 +44,7 @@ class PhoSimRepackager:
     def __init__(self):
         self.amp_info_records = list(list(obs_lsst.LsstCamMapper().camera)[0])
 
-    def process_visit(self, visit_dir, out_dir=None, verbose=False):
+    def process_visit(self, visit_dir, out_dir=None, prefix='lsst', verbose=False):
         """
         Parameters
         ----------
@@ -53,11 +53,13 @@ class PhoSimRepackager:
         out_dir: str [None]
             Output directory for MEF files. If None, then a directory
             with name v<visit #>-<band> will be created in the cwd.
+        prefix: str ['lsst']
+            Prefix to use to find PhoSim amplifier files in visit_dir.
         verbose: bool [False]
             Set to True to print out time for processing each sensor.
         """
         phosim_amp_files \
-            = sorted(glob.glob(os.path.join(visit_dir, 'lsst_a_*')))
+            = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_a_*')))
         amp_files = defaultdict(list)
         for item in phosim_amp_files:
             sensor_id = '_'.join(os.path.basename(item).split('_')[4:6])
