@@ -9,7 +9,7 @@ import time
 from collections import defaultdict
 import astropy.io.fits as fits
 import astropy.time
-import lsst.obs.lsst as obs_lsst
+from lsst.obs.lsst.phosim import PhosimMapper
 
 __all__ = ['PhoSimRepackager', 'noao_section_keyword']
 
@@ -42,7 +42,7 @@ class PhoSimRepackager:
     MEFs with one HDU per amp.
     """
     def __init__(self):
-        self.amp_info_records = list(list(obs_lsst.LsstCamMapper().camera)[0])
+        self.amp_info_records = list(list(PhosimMapper().camera)[0])
 
     def process_visit(self, visit_dir, out_dir=None, prefix='lsst', verbose=False):
         """
