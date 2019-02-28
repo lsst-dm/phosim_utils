@@ -59,7 +59,7 @@ class PhoSimRepackager:
             Set to True to print out time for processing each sensor.
         """
         phosim_amp_files \
-            = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_a_*')))
+            = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_a_*_C*')))
         amp_files = defaultdict(list)
         for item in phosim_amp_files:
             splt = os.path.basename(item).split('_')
