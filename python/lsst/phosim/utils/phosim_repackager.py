@@ -62,7 +62,8 @@ class PhoSimRepackager:
             = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_a_*')))
         amp_files = defaultdict(list)
         for item in phosim_amp_files:
-            sensor_id = '_'.join(os.path.basename(item).split('_')[4:6])
+            splt = os.path.basename(item).split('_')
+            sensor_id = '_'.join(splt[4:6] + [splt[7]])
             amp_files[sensor_id].append(item)
         if out_dir is None:
             tokens = os.path.basename(phosim_amp_files[0]).split('_')
@@ -151,6 +152,7 @@ class PhoSimRepackager:
         parts = chip_id.split('_')
         raft = parts[0]
         ccd = parts[1]
+        snap = int(os.path.basename(fn).split('_')[7][1:4])
         sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
         sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
         sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
@@ -166,6 +168,7 @@ class PhoSimRepackager:
         sensor[0].header['MONOWL'] = -1
         sensor[0].header['RAFTNAME'] = raft
         sensor[0].header['SENSNAME'] = ccd
+        sensor[0].header['SNAP'] = snap
         # Add boresight pointing angles and rotskypos (angle of sky
         # relative to Camera coordinates) from which obs_obs_lsst can
         # infer the CCD-wide WCS.
