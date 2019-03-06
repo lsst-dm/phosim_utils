@@ -52,7 +52,7 @@ def main(just_wfs=False, detector_list=None):
             image = afwImage.ImageF(ccd.getBBox())
             for amp in ccd:
                 subim = afwImage.ImageF(image, amp.getBBox())
-                subim[:] = amp.getGain()
+                subim[:] = 1/amp.getGain()
                 print(amp.getName(), amp.getGain())
             expInfo = afwImage.ExposureInfo()
             inFilter = afwImage.Filter(filt_name)
