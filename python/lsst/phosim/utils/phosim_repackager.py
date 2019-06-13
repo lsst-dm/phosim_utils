@@ -1,6 +1,8 @@
 """
-Code to repackage phosim amplifier files into single sensor
-multi-extension FITS files, with an HDU per amplifier.
+Code to repackage phosim files. The amplifier files will be transformed into
+single sensor multi-extension FITS files, with an HDU per amplifier. For the
+eimage, the header will be updated to match the translator's definition in
+obs_lsst.
 """
 import os
 import sys
@@ -193,6 +195,119 @@ class PhoSimRepackager:
         # Remove the channel identifier.
         outfile = '_'.join(tokens[:6] + tokens[7:])
         outfile = os.path.join(out_dir, outfile)
+        # astropy's gzip compression is very slow, so remove any .gz
+        # extension from the computed output filename and gzip the
+        # files later.
+        if outfile.endswith('.gz'):
+            outfile = outfile[:-len('.gz')]
+        return outfile
+
+    def process_visit_eimage(self, visit_dir, out_dir=None, prefix='lsst',
+                             verbose=False):
+        """Process the visit eimage data.
+
+        Parameters
+        ----------
+        visit_dir: str
+            Directory containing the phosim eimage for a given visit.
+        out_dir : str, optional
+            Output directory for repackaged files. If None, then a directory
+            with name 'eimage' will be created in the cwd. (the default is
+            None.)
+        prefix : str, optional
+            Prefix to use to find PhoSim eimage files in visit_dir. (the
+            default is 'lsst'.)
+        verbose : bool, optional
+            Set to True to print out time for processing each sensor. (the
+            default is False.)
+        """
+
+        phosim_eimg_files \
+            = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_e_*')))
+
+        if (out_dir is None):
+            out_dir = 'eimage'
+
+        if not os.path.isdir(out_dir):
+            os.mkdir(out_dir)
+
+        for eimg_file in phosim_eimg_files:
+            if verbose:
+                sys.stdout.write(eimg_file + '  ')
+            t0 = time.time()
+
+            # Skip already-processed and compressed files.
+            gzip_file = self.mef_filename_eimage(eimg_file, out_dir=out_dir) + '.gz'
+            if os.path.isfile(gzip_file):
+                sys.stdout.write('%s exists. Skip the processing.' % gzip_file)
+                continue
+
+            print("repackaging", gzip_file)
+            self.repackage_eimage(eimg_file, out_dir=out_dir)
+            if (verbose):
+                print(time.time() - t0)
+                sys.stdout.flush()
+
+    def repackage_eimage(self, phosim_eimg_file, out_dir='.'):
+        """Repackage the phosim eimage file to the format required by obs_lsst.
+
+        Parameters
+        ----------
+        phosim_eimg_file : str
+            PhoSim eimage file.
+        out_dir : str, optional
+            Output directory (the default is '.'.)
+        """
+
+        sensor = fits.open(phosim_eimg_file)[0]
+
+        # Set keywords in primary HDU, extracting most of the relevant
+        # ones from the original phosim eimage file.
+        sensor.header['RUNNUM'] = sensor.header['OBSID']
+        sensor.header['DATE-OBS'] = \
+            astropy.time.Time(sensor.header['MJD-OBS'], format='mjd').isot
+
+        chip_id = sensor.header['CHIPID']
+        sensor.header['LSST_NUM'] = chip_id
+
+        parts = chip_id.split('_')
+        raft = parts[0]
+        ccd = parts[1]
+        sensor.header['RAFTNAME'] = raft
+        sensor.header['SENSNAME'] = ccd
+
+        sensor.header['TESTTYPE'] = 'PHOSIM'
+        sensor.header['IMGTYPE'] = 'SKYEXP'
+        sensor.header['MONOWL'] = -1
+
+        # Add boresight pointing angles and rotskypos (angle of sky
+        # relative to Camera coordinates) from which obs_lsst can
+        # infer the CCD-wide WCS.
+        sensor.header['RATEL'] = sensor.header['RA_DEG']
+        sensor.header['DECTEL'] = sensor.header['DEC_DEG']
+
+        # The rotation angle has different names in different versions
+        try:
+            sensor.header['ROTANGLE'] = sensor.header['ROTANGZ']
+        except KeyError:
+            try:
+                sensor.header['ROTANGLE'] = sensor.header['ROTANG']
+            except KeyError as e:
+                raise(e)
+
+        # Transpose the image to fulfill the geometry of postISRCCD by obs_lsst
+        sensor.data = sensor.data.T
+
+        outfile = self.mef_filename_eimage(phosim_eimg_file, out_dir=out_dir)
+        sensor.writeto(outfile, overwrite=True)
+
+    @staticmethod
+    def mef_filename_eimage(phosim_eimg_file, out_dir='.'):
+        """Construct the filename of the output file based on a phosim single
+        eimage filename."""
+
+        basename = os.path.basename(phosim_eimg_file)
+        outfile = os.path.join(out_dir, basename)
         # astropy's gzip compression is very slow, so remove any .gz
         # extension from the computed output filename and gzip the
         # files later.

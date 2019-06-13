@@ -5,6 +5,7 @@
 # - Any package whose API is used should be listed explicitly
 #   rather than assuming it will be included recursively.
 setupRequired(sconsUtils)
+setupRequired(utils)
 setupRequired(obs_lsst)
 
 # The following is boilerplate for all packages.
