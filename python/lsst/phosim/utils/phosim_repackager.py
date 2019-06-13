@@ -202,8 +202,8 @@ class PhoSimRepackager:
             outfile = outfile[:-len('.gz')]
         return outfile
 
-    def process_visit_eimg(self, visit_dir, out_dir=None, prefix='lsst',
-                           verbose=False):
+    def process_visit_eimage(self, visit_dir, out_dir=None, prefix='lsst',
+                             verbose=False):
         """Process the visit eimage data.
 
         Parameters
@@ -237,18 +237,18 @@ class PhoSimRepackager:
             t0 = time.time()
 
             # Skip already-processed and compressed files.
-            gzip_file = self.mef_filename_eimg(eimg_file, out_dir=out_dir) + '.gz'
+            gzip_file = self.mef_filename_eimage(eimg_file, out_dir=out_dir) + '.gz'
             if os.path.isfile(gzip_file):
                 sys.stdout.write('%s exists. Skip the processing.' % gzip_file)
                 continue
 
             print("repackaging", gzip_file)
-            self.repackage_eimg(eimg_file, out_dir=out_dir)
+            self.repackage_eimage(eimg_file, out_dir=out_dir)
             if (verbose):
                 print(time.time() - t0)
                 sys.stdout.flush()
 
-    def repackage_eimg(self, phosim_eimg_file, out_dir='.'):
+    def repackage_eimage(self, phosim_eimg_file, out_dir='.'):
         """Repackage the phosim eimage file to the format required by obs_lsst.
 
         Parameters
@@ -259,8 +259,6 @@ class PhoSimRepackager:
             Output directory (the default is '.'.)
         """
 
-        # Extract the data for each segment from the FITS files
-        # into a dictionary keyed by channel id.
         sensor = fits.open(phosim_eimg_file)[0]
 
         # Set keywords in primary HDU, extracting most of the relevant
@@ -300,11 +298,11 @@ class PhoSimRepackager:
         # Transpose the image to fulfill the geometry of postISRCCD by obs_lsst
         sensor.data = sensor.data.T
 
-        outfile = self.mef_filename_eimg(phosim_eimg_file, out_dir=out_dir)
+        outfile = self.mef_filename_eimage(phosim_eimg_file, out_dir=out_dir)
         sensor.writeto(outfile, overwrite=True)
 
     @staticmethod
-    def mef_filename_eimg(phosim_eimg_file, out_dir='.'):
+    def mef_filename_eimage(phosim_eimg_file, out_dir='.'):
         """Construct the filename of the output file based on a phosim single
         eimage filename."""
 

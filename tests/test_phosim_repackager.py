@@ -56,23 +56,23 @@ class TestPhoSimRepackager(unittest.TestCase):
 
         shutil.rmtree(self.tmp_test_dir)
 
-    def test_process_visit_eimg(self):
+    def test_process_visit_eimage(self):
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.process_visit_eimg(
+        self.phoSim_repackager.process_visit_eimage(
             self.test_data_dir, out_dir=self.tmp_test_dir, prefix='lsst')
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 1)
 
-    def test_repackage_eimg(self):
+    def test_repackage_eimage(self):
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.repackage_eimg(
+        self.phoSim_repackager.repackage_eimage(
             self.eimg_file_path, out_dir=self.tmp_test_dir)
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
@@ -100,11 +100,11 @@ class TestPhoSimRepackager(unittest.TestCase):
         return len([name for name in os.listdir(directory)
                    if os.path.isfile(os.path.join(directory, name))])
 
-    def test_mef_filename_eimg(self):
+    def test_mef_filename_eimage(self):
 
         out_dir = os.path.join(os.sep, "path", "of", "output")
 
-        outfile = PhoSimRepackager.mef_filename_eimg(
+        outfile = PhoSimRepackager.mef_filename_eimage(
             self.eimg_file_path, out_dir=out_dir)
 
         ans_outfile = os.path.join(out_dir, self.base_eimg_file_name)
