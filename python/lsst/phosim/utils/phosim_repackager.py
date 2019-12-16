@@ -132,13 +132,13 @@ class PhoSimRepackager:
         # Set the NOAO section keywords based on the pixel geometry
         # in the obs_lsst object.
         for amp in self.amp_info_records:
-            hdu = segments[amp.get('name')[1:]]
-            hdu.header['EXTNAME'] = 'Segment%s' % amp.get('name')[1:]
+            hdu = segments[amp.getName()[1:]]
+            hdu.header['EXTNAME'] = 'Segment%s' % amp.getName()[1:]
             hdu.header['DATASEC'] = noao_section_keyword(amp.getRawDataBBox())
             hdu.header['DETSEC'] \
                 = noao_section_keyword(amp.getBBox(),
-                                       flipx=amp.get('raw_flip_x'),
-                                       flipy=amp.get('raw_flip_y'))
+                                       flipx=amp.getRawFlipX(),
+                                       flipy=amp.getRawFlipY())
             # Remove the incorrect BIASSEC keyword that phosim writes.
             try:
                 hdu.header.remove('BIASSEC')
