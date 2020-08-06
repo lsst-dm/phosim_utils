@@ -55,9 +55,9 @@ def main(just_wfs=False, detector_list=None):
                 subim[:] = 1/amp.getGain()
                 print(amp.getName(), amp.getGain())
 
-                # need to flip the image to match the result of phosim repackager... 
-			oldImageArray = image.array
-			image.array[:] = np.flipud(oldImageArray)
+            # need to flip the image to match the result of phosim repackager...
+            oldImageArray = image.array
+            image.array[:] = np.flipud(oldImageArray)
 
             expInfo = afwImage.ExposureInfo()
             inFilter = afwImage.Filter(filt_name)
