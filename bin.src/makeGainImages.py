@@ -25,7 +25,7 @@ import argparse
 
 from lsst.obs.lsst.phosim import PhosimMapper
 import lsst.afw.image as afwImage
-
+import numpy as np
 
 def main(just_wfs=False, detector_list=None):
 
@@ -56,7 +56,7 @@ def main(just_wfs=False, detector_list=None):
                 print(amp.getName(), amp.getGain())
             
             # need to flip the image to match the result of phosim repackager... 
-            oldImageArray = image.array
+            oldImageArray = image.array.copy()
             image.array[:] = np.flipud(oldImageArray)
 
             expInfo = afwImage.ExposureInfo()
