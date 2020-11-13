@@ -1,0 +1,35 @@
+name: build
+
+# Triggers the workflow on push or pull request events
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: lsstsqre/centos:w_latest
+      # The GitHub runner is running under user, with UID: 1001 and GID: 116
+      options: --user 1001
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Build the package
+        env:
+          LSST_STACK: /opt/lsst/software/stack
+          STACK_VERSION: current
+        run: |
+          source $LSST_STACK/loadLSST.bash
+          setup -k -r . -t $STACK_VERSION
+          scons
+
+      - name: Archive the test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: Test-result
+          path: tests/.tests/
+        # Use always() to always run this step to publish test results when
+        # there are test failures
+        if: ${{ always() }}
