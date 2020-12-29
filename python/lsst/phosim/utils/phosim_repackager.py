@@ -8,10 +8,11 @@ import os
 import sys
 import glob
 import time
+import numpy as np
 from collections import defaultdict
 import astropy.io.fits as fits
 import astropy.time
-from lsst.obs.lsst.phosim import PhosimMapper
+from lsst.obs.lsst import LsstCam
 
 __all__ = ['PhoSimRepackager', 'noao_section_keyword']
 
@@ -41,10 +42,12 @@ def noao_section_keyword(bbox, flipx=False, flipy=False):
 class PhoSimRepackager:
     """
     Class to repackage phosim amplifier files into single sensor
-    MEFs with one HDU per amp.
+    MEFs with one HDU per amp, using LSE-400 for header conformity.
     """
     def __init__(self):
-        self.amp_info_records = list(list(PhosimMapper().camera)[0])
+        self.telcode = 'MC'
+        self.contrllr = 'H'
+        self.camera = LsstCam().getCamera()
 
     def process_visit(self, visit_dir, out_dir=None, prefix='lsst', verbose=False):
         """
@@ -63,144 +66,334 @@ class PhoSimRepackager:
         phosim_amp_files \
             = sorted(glob.glob(os.path.join(visit_dir, f'{prefix}_a_*')))
         amp_files = defaultdict(list)
+
         for item in phosim_amp_files:
             sensor_id = '_'.join(os.path.basename(item).split('_')[4:6])
             amp_files[sensor_id].append(item)
+
         if out_dir is None:
             tokens = os.path.basename(phosim_amp_files[0]).split('_')
             out_dir = 'v%07i-%s' % (int(tokens[2]), 'ugrizy'[int(tokens[3][1])])
+
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
         for sensor_id in amp_files:
+            # print time spent repackaging
             if verbose:
                 sys.stdout.write(sensor_id + '  ')
             t0 = time.time()
-            # Skip already-processed and compressed files.
-            gzip_file = self.mef_filename(amp_files[sensor_id][0],
-                                          out_dir=out_dir) + '.gz'
-            if os.path.isfile(gzip_file):
-                continue
-            print("repackaging", gzip_file)
-            self.repackage(amp_files[sensor_id], out_dir=out_dir)
+
+            # decide whether corner sensors or main raft
+            if sensor_id in ['R00_S22', 'R04_S20', 'R40_S02', 'R44_S00']:
+                print("repackaging corner")
+                self.repackage_corner(amp_files[sensor_id], out_dir=out_dir,
+                                      verbose=verbose)
+
+            else:
+                print("repackaging main")
+                self.repackage_main(amp_files[sensor_id], out_dir=out_dir,
+                                    verbose=verbose)
+
             if verbose:
                 print(time.time() - t0)
                 sys.stdout.flush()
 
-    def repackage(self, phosim_amp_files, out_dir='.'):
+    def repackage_corner(self, phosim_amp_files, out_dir='.', verbose=False):
         """
         Repackage a collection of phosim amplifier files for a
-        single sensor into a multi-extension FITS file.
+        single wavefront sensor into a two multi-extension FITS files,
+        one for intra- and one for extra-focal segments.
 
         Parameters
         ----------
         phosim_amp_files: list
             List of phosim amplifier filenames.
+        camera: lsst.afw.cameraGeom.camera.camera.Camera object
+        out_dir : str, optional
+            Output directory (the default is '.'.)
+        verbose: bool, optional
+            Set to True to print out processing information.
         """
-        # PhoSim labels the amplifier channels incorrectly.  Here is a
-        # mapping from the phosim channels to the correct ones.
-        ch_map = {'00': '10',
-                  '01': '11',
-                  '02': '12',
-                  '03': '13',
-                  '04': '14',
-                  '05': '15',
-                  '06': '16',
-                  '07': '17',
-                  '17': '07',
-                  '16': '06',
-                  '15': '05',
-                  '14': '04',
-                  '13': '03',
-                  '12': '02',
-                  '11': '01',
-                  '10': '00'}
+        # PhoSim labels the amplifier channels differently than
+        # LsstCamMapper . This is a mapping from the phosim channels
+        # to the LsstCam channels.
 
-        # Create the HDUList to contain the MEF data.
+        # SW1, intra-focal
+        ch_map_intra = {'00': '17',
+                        '01': '16',
+                        '02': '15',
+                        '03': '14',
+                        '04': '13',
+                        '05': '12',
+                        '06': '11',
+                        '07': '10'}
+
+        # SW0, extra-focal
+        ch_map_extra = {'10': '17',
+                        '11': '16',
+                        '12': '15',
+                        '13': '14',
+                        '14': '13',
+                        '15': '12',
+                        '16': '11',
+                        '17': '10'}
+
+        # Read the intra- and extra-focal amps as segments that will be
+        # assembled into a fits file
+        segmentsIntra = {}
+        segmentsExtra = {}
+
+        # Store intra- and extra-focal amps as keys of a segments
+        # dictionary. Find channel name from phosim filename.
+        # Correct the channel name into obs_lsst convention,
+        # handling separately intra- and extra-focal cases.
+        for filename in phosim_amp_files:
+            phosim_channel = os.path.basename(filename).split('_')[6][1:]
+
+            if phosim_channel in ch_map_intra.keys():
+                segmentsIntra[ch_map_intra[phosim_channel]] = fits.open(filename)[0]
+
+            elif phosim_channel in ch_map_extra.keys():
+                segmentsExtra[ch_map_extra[phosim_channel]] = fits.open(filename)[0]
+
+        # Read raft name from the last filename
+        raft = os.path.basename(filename).split('_')[4]
+        print('Repackaging sensor %s'%raft)
+
+        TELCODE = self.telcode
+        CONTRLLR = self.contrllr
+
+        for ccdslot, segments in zip(['SW1', 'SW0'],
+                                     [segmentsIntra, segmentsExtra]):
+            print('\n', ccdslot, segments.keys())
+
+            # initialize the FITS file
+            sensor = fits.HDUList(fits.PrimaryHDU())
+            sensorId = '%s_%s'%(raft, ccdslot)
+            if verbose:
+                print('Using amp info for %s'%sensorId)
+            detectors = self.camera.get(sensorId)
+
+            # Set the NOAO section keywords based on the pixel geometry
+            # in the obs_lsst object for each amplifier header
+            for amp in detectors:
+                ampName = amp.getName()[1:]
+                if verbose:
+                    print(ampName)
+                hdu = segments[ampName]
+                hdu.header['EXTNAME'] = 'Segment%s' % ampName
+                hdu.header['DATASEC'] = noao_section_keyword(amp.getRawDataBBox())
+                hdu.header['DETSEC'] = noao_section_keyword(
+                    amp.getBBox(),
+                    flipx=amp.getRawFlipX(),
+                    flipy=amp.getRawFlipY())
+
+                # flip up-down the intra-focal images for correct orientation
+                if ccdslot == 'SW1':
+                    if verbose:
+                        print('Flipping up-down..')
+                    data = np.copy(hdu.data)
+                    hdu.data[:] = np.flipud(data)
+
+                # Remove the incorrect BIASSEC keyword that phosim writes
+                try:
+                    hdu.header.remove('BIASSEC')
+                except KeyError:
+                    pass
+                sensor.append(hdu)
+
+            # Set keywords in primary HDU, extracting most of the relevant
+            # ones from the first phosim amplifier file.
+            sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
+            sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
+            sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
+            sensor[0].header['MJD-OBS'] = sensor[1].header['MJD-OBS']
+            DATEOBS = astropy.time.Time(sensor[1].header['MJD-OBS'], format='mjd').isot
+            sensor[0].header['DATE-OBS'] = DATEOBS
+            YEAR, MONTH, DAYTIME = DATEOBS.split('-')
+            DAY = DAYTIME[:2]
+            DAYOBS = '%s%s%s'%(YEAR, MONTH, DAY)
+            sensor[0].header['DAYOBS'] = DAYOBS
+
+            DATE = sensor[1].header['DATE']  # file creation date
+            sensor[0].header['DATE'] = DATE
+            sensor[0].header['MJD'] = astropy.time.Time(DATE, format='isot').mjd
+
+            sensor[0].header['FILTER'] = sensor[1].header['FILTER']
+
+            serial = detectors.getSerial()  # eg. ITL-4400B-029
+            CCD_MANU, CCD_TYPE, CCD_NUM = serial.split('-')
+            sensor[0].header['LSST_NUM'] = serial
+            sensor[0].header['CCD_MANU'] = CCD_MANU  # eg. ITL
+            sensor[0].header['CCD_TYPE'] = CCD_TYPE  # eg. 4400B
+
+            # NB: I get [1:4072,1:2000], whereas  BOT has '[1:4072,1:4000]'
+            sensor[0].header['DETSIZE'] = noao_section_keyword(detectors.getBBox())
+            sensor[0].header['INSTRUME'] = 'lsstCam'
+            sensor[0].header['TELESCOP'] = 'LSST'
+
+            sensor[0].header['TELCODE'] = TELCODE
+            sensor[0].header['CONTRLLR'] = CONTRLLR
+            # Set sequence number from OBSID, eg. 9006001, taking
+            # the last 6 digits
+            SEQNUM = int(sensor[0].header['OBSID'][-6:])
+            sensor[0].header['SEQNUM'] = SEQNUM
+
+            OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
+            sensor[0].header['OBSID'] = OBSID
+
+            sensor[0].header['TESTTYPE'] = 'PHOSIM'
+            sensor[0].header['IMGTYPE'] = 'SKYEXP'
+            sensor[0].header['RAFTBAY'] = raft
+            sensor[0].header['CCDSLOT'] = ccdslot
+            sensor[0].header['RASTART'] = sensor[1].header['RA_DEG']
+            sensor[0].header['DECSTART'] = sensor[1].header['DEC_DEG']
+            sensor[0].header['ROTSTART'] = sensor[1].header['ROTANG']
+            sensor[0].header['RA'] = sensor[1].header['RA_DEG']
+            sensor[0].header['DEC'] = sensor[1].header['DEC_DEG']
+            sensor[0].header['ROTPA'] = sensor[1].header['ROTANG']
+            sensor[0].header['ROTPOS'] = sensor[1].header['ROTANG']
+
+            # Filename created from TELCODE, CONTRLLR, DAYOBS, SEQNUM , raft, ccdslot.
+            # eg. MC_C_20200825_000032_R00_SW0.fits
+            # Below, OBSID already contains TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6)
+            filename = '%s_%s_%s.fits'%(OBSID, raft, ccdslot)
+            filename = os.path.join(out_dir, filename)
+
+            # save the FITS file
+            sensor.writeto(filename, overwrite=True)
+            print('Saved as %s'%filename)
+
+    def repackage_main(self, phosim_amp_files, out_dir='.', verbose=False):
+        """
+        Repackage a collection of phosim amplifier files for a
+        single wavefront sensor into a two multi-extension FITS files,
+        one for intra- and one for extra-focal segments.
+
+        Parameters
+        ----------
+        phosim_amp_files: list
+            List of phosim amplifier filenames.
+        out_dir : str, optional
+            Output directory (the default is '.'.)
+        verbose: bool, optional
+            Set to True to print out processing information.
+        """
+        # Read the amplifiers into segments that will be
+        # assembled into a fits file
+        segments = {}
+        for filename in phosim_amp_files:
+            phosim_channel = os.path.basename(filename).split('_')[6][1:]
+            segments[phosim_channel] = fits.open(filename)[0]
+
+        # Read raft name from the last filename
+        raft = os.path.basename(filename).split('_')[4]
+        ccdslot = os.path.basename(filename).split('_')[5]
+        print('Repackaging sensor %s'%raft)
+
+        TELCODE = self.telcode
+        CONTRLLR = self.contrllr
+
+        ####
+        # make  the FITS file
+        ###
+        if verbose:
+            print('\n', ccdslot, segments.keys())
+
+        # initialize the FITS file
         sensor = fits.HDUList(fits.PrimaryHDU())
+        sensorId = '%s_%s'%(raft, ccdslot)
+        if verbose:
+            print('Using amp info for %s'%sensorId)
+        detectors = self.camera.get(sensorId)
 
-        # Extract the data for each segment from the FITS files
-        # into a dictionary keyed by channel id.
-        segments = dict()
-        for fn in phosim_amp_files:
-            # Get the channel id from the filename written by phosim.
-            # This is the incorrect channel id, so correct it when
-            # filling the segments dictionary.
-            phosim_channel = os.path.basename(fn).split('_')[6][1:]
-            segments[ch_map[phosim_channel]] = fits.open(fn)[0]
-
-        # Set the NOAO section keywords based on the pixel geometry
-        # in the obs_lsst object.
-        for amp in self.amp_info_records:
-            hdu = segments[amp.getName()[1:]]
-            hdu.header['EXTNAME'] = 'Segment%s' % amp.getName()[1:]
+        # iterate over amplifiers
+        for amp in detectors:
+            ampName = amp.getName()[1:]
+            hdu = segments[ampName]
+            hdu.header['EXTNAME'] = 'Segment%s' % ampName
             hdu.header['DATASEC'] = noao_section_keyword(amp.getRawDataBBox())
-            hdu.header['DETSEC'] \
-                = noao_section_keyword(amp.getBBox(),
-                                       flipx=amp.getRawFlipX(),
-                                       flipy=amp.getRawFlipY())
+            hdu.header['DETSEC'] = noao_section_keyword(
+                amp.getBBox(),
+                flipx=amp.getRawFlipX(),
+                flipy=amp.getRawFlipY())
+
+            # Flip up-down the intra-images for correct orientation
+            if ampName in ['00', '01', '02', '03', '04', '05', '06', '07']:
+                if verbose:
+                    print('Flipping left-right..')
+                data = np.copy(hdu.data)
+                hdu.data[:] = np.fliplr(data)
+
             # Remove the incorrect BIASSEC keyword that phosim writes.
             try:
                 hdu.header.remove('BIASSEC')
             except KeyError:
                 pass
-
             sensor.append(hdu)
 
         # Set keywords in primary HDU, extracting most of the relevant
         # ones from the first phosim amplifier file.
-        chip_id = sensor[1].header['CHIPID']
-        parts = chip_id.split('_')
-        raft = parts[0]
-        ccd = parts[1]
+
         sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
         sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
         sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
         sensor[0].header['MJD-OBS'] = sensor[1].header['MJD-OBS']
-        sensor[0].header['DATE-OBS'] \
-            = astropy.time.Time(sensor[1].header['MJD-OBS'], format='mjd').isot
+        DATEOBS = astropy.time.Time(sensor[1].header['MJD-OBS'], format='mjd').isot
+        sensor[0].header['DATE-OBS'] = DATEOBS
+        YEAR, MONTH, DAYTIME = DATEOBS.split('-')
+        DAY = DAYTIME[:2]
+        DAYOBS = '%s%s%s'%(YEAR, MONTH, DAY)
+        sensor[0].header['DAYOBS'] = DAYOBS
+
+        DATE = sensor[1].header['DATE']  # file creation date
+        sensor[0].header['DATE'] = DATE
+        sensor[0].header['MJD'] = astropy.time.Time(DATE, format='isot').mjd
+
         sensor[0].header['FILTER'] = sensor[1].header['FILTER']
-        sensor[0].header['LSST_NUM'] = chip_id
-        sensor[0].header['CHIPID'] = chip_id
-        sensor[0].header['OBSID'] = sensor[1].header['OBSID']
+
+        serial = detectors.getSerial()  # eg. ITL-4400B-029
+        CCD_MANU, CCD_TYPE, CCD_NUM = serial.split('-')
+        sensor[0].header['LSST_NUM'] = serial
+        sensor[0].header['CCD_MANU'] = CCD_MANU  # eg. ITL
+        sensor[0].header['CCD_TYPE'] = CCD_TYPE  # eg. 4400B
+
+        sensor[0].header['DETSIZE'] = noao_section_keyword(detectors.getBBox())
+        sensor[0].header['INSTRUME'] = 'lsstCam'
+        sensor[0].header['TELESCOP'] = 'LSST'
+
+        sensor[0].header['TELCODE'] = TELCODE
+        sensor[0].header['CONTRLLR'] = CONTRLLR
+        SEQNUM = int(sensor[0].header['OBSID'][-6:])
+        sensor[0].header['SEQNUM'] = SEQNUM
+
+        OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
+        sensor[0].header['OBSID'] = OBSID
+
         sensor[0].header['TESTTYPE'] = 'PHOSIM'
         sensor[0].header['IMGTYPE'] = 'SKYEXP'
-        sensor[0].header['MONOWL'] = -1
-        sensor[0].header['RAFTNAME'] = raft
-        sensor[0].header['SENSNAME'] = ccd
-        # Add boresight pointing angles and rotskypos (angle of sky
-        # relative to Camera coordinates) from which obs_obs_lsst can
-        # infer the CCD-wide WCS.
-        sensor[0].header['RATEL'] = sensor[1].header['RA_DEG']
-        sensor[0].header['DECTEL'] = sensor[1].header['DEC_DEG']
-        # The rotation angle has different names in different versions
-        try:
-            sensor[0].header['ROTANGLE'] = sensor[1].header['ROTANGZ']
-        except KeyError:
-            try:
-                sensor[0].header['ROTANGLE'] = sensor[1].header['ROTANG']
-            except KeyError as e:
-                raise(e)
 
-        outfile = self.mef_filename(phosim_amp_files[0], out_dir=out_dir)
-        sensor.writeto(outfile, overwrite=True)
+        sensor[0].header['RAFTBAY'] = raft
+        sensor[0].header['CCDSLOT'] = ccdslot
 
-    @staticmethod
-    def mef_filename(phosim_amp_file, out_dir='.'):
-        """
-        Construct the filename of the output MEF file based
-        on a phosim single amplifier filename.
-        """
-        tokens = os.path.basename(phosim_amp_file).split('_')
-        # Remove the channel identifier.
-        outfile = '_'.join(tokens[:6] + tokens[7:])
-        outfile = os.path.join(out_dir, outfile)
-        # astropy's gzip compression is very slow, so remove any .gz
-        # extension from the computed output filename and gzip the
-        # files later.
-        if outfile.endswith('.gz'):
-            outfile = outfile[:-len('.gz')]
-        return outfile
+        sensor[0].header['RASTART'] = sensor[1].header['RA_DEG']
+        sensor[0].header['DECSTART'] = sensor[1].header['DEC_DEG']
+        sensor[0].header['ROTSTART'] = sensor[1].header['ROTANG']
+        sensor[0].header['RA'] = sensor[1].header['RA_DEG']
+        sensor[0].header['DEC'] = sensor[1].header['DEC_DEG']
+        sensor[0].header['ROTPA'] = sensor[1].header['ROTANG']
+        sensor[0].header['ROTPOS'] = sensor[1].header['ROTANG']
+
+        # Filename created from TELCODE, CONTRLLR, DAYOBS, SEQNUM , raft, ccdslot.
+        # eg. MC_C_20200825_000032_R00_SW0.fits
+        # Below, OBSID already contains TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6)
+        filename = '%s_%s_%s.fits'%(OBSID, raft, ccdslot)
+        filename = os.path.join(out_dir, filename)
+
+        # save the FITS file
+        sensor.writeto(filename, overwrite=True)
+        print('Saved as %s'%filename)
 
     def process_visit_eimage(self, visit_dir, out_dir=None, prefix='lsst',
                              verbose=False):
@@ -236,19 +429,13 @@ class PhoSimRepackager:
                 sys.stdout.write(eimg_file + '  ')
             t0 = time.time()
 
-            # Skip already-processed and compressed files.
-            gzip_file = self.mef_filename_eimage(eimg_file, out_dir=out_dir) + '.gz'
-            if os.path.isfile(gzip_file):
-                sys.stdout.write('%s exists. Skip the processing.' % gzip_file)
-                continue
-
-            print("repackaging", gzip_file)
+            print("repackaging", eimg_file)
             self.repackage_eimage(eimg_file, out_dir=out_dir)
             if (verbose):
                 print(time.time() - t0)
                 sys.stdout.flush()
 
-    def repackage_eimage(self, phosim_eimg_file, out_dir='.'):
+    def repackage_eimage(self, phosim_eimg_file, out_dir='.', verbose=False):
         """Repackage the phosim eimage file to the format required by obs_lsst.
 
         Parameters
@@ -257,60 +444,97 @@ class PhoSimRepackager:
             PhoSim eimage file.
         out_dir : str, optional
             Output directory (the default is '.'.)
+        verbose: bool, optional
+            Set to True to print out processing information.
         """
+        TELCODE = self.telcode
+        CONTRLLR = self.contrllr
+
+        # For corner rafts need to switch to
+        # obs_lsst names for half-sensors
+        ccd_mapper = {'C0': 'SW1',
+                      'C1': 'SW0'}
 
         sensor = fits.open(phosim_eimg_file)[0]
 
-        # Set keywords in primary HDU, extracting most of the relevant
-        # ones from the original phosim eimage file.
+        filename = phosim_eimg_file
+        raft = os.path.basename(filename).split('_')[4]
+        ccdslot = os.path.basename(filename).split('_')[5]
+        detName = '%s_%s'%(raft, ccdslot)
+
+        # Change the half-sensor name for corner rafts
+        if detName in ['R00_S22', 'R04_S20', 'R40_S02', 'R44_S00']:
+            ccdslot = os.path.basename(filename).split('_')[6]
+            ccdslot = ccd_mapper[ccdslot]
+            print('\nRepackaging corner ', raft, ccdslot)
+        else:
+            print('\nRepackaging main ', raft, ccdslot)
+
+        # add required headers
+        # eg. R00_SW1 (corner )  or R22_S00  (main)
+        sensorId = '%s_%s'%(raft, ccdslot)
+
+        detectors = self.camera.get(sensorId)
+
+        # Set BOT-like keywords in the HDU
+        sensor.header['EXPTIME'] = sensor.header['EXPTIME']
+        sensor.header['DARKTIME'] = sensor.header['DARKTIME']
         sensor.header['RUNNUM'] = sensor.header['OBSID']
-        sensor.header['DATE-OBS'] = \
-            astropy.time.Time(sensor.header['MJD-OBS'], format='mjd').isot
+        sensor.header['MJD-OBS'] = sensor.header['MJD-OBS']
 
-        chip_id = sensor.header['CHIPID']
-        sensor.header['LSST_NUM'] = chip_id
+        DATEOBS = astropy.time.Time(sensor.header['MJD-OBS'], format='mjd').isot
+        sensor.header['DATE-OBS'] = DATEOBS
 
-        parts = chip_id.split('_')
-        raft = parts[0]
-        ccd = parts[1]
-        sensor.header['RAFTNAME'] = raft
-        sensor.header['SENSNAME'] = ccd
+        YEAR, MONTH, DAYTIME = DATEOBS.split('-')
+        DAY = DAYTIME[:2]
+        DAYOBS = '%s%s%s'%(YEAR, MONTH, DAY)
+        sensor.header['DAYOBS'] = DAYOBS
+
+        # file creation date as mjd
+        sensor.header['MJD'] = astropy.time.Time(sensor.header['DATE'],
+                                                 format='isot').mjd
+
+        serial = detectors.getSerial()  # eg. ITL-4400B-029
+        CCD_MANU, CCD_TYPE, CCD_NUM = serial.split('-')
+        sensor.header['LSST_NUM'] = serial
+        sensor.header['CCD_MANU'] = CCD_MANU  # eg. ITL
+        sensor.header['CCD_TYPE'] = CCD_TYPE  # eg. 4400B
+
+        sensor.header['DETSIZE'] = noao_section_keyword(detectors.getBBox())
+        sensor.header['INSTRUME'] = 'lsstCam'
+        sensor.header['TELESCOP'] = 'LSST'
+
+        sensor.header['TELCODE'] = TELCODE
+        sensor.header['CONTRLLR'] = CONTRLLR
+        SEQNUM = int(sensor.header['OBSID'][-6:])
+        sensor.header['SEQNUM'] = SEQNUM
+
+        OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
+        sensor.header['OBSID'] = OBSID
 
         sensor.header['TESTTYPE'] = 'PHOSIM'
         sensor.header['IMGTYPE'] = 'SKYEXP'
-        sensor.header['MONOWL'] = -1
 
-        # Add boresight pointing angles and rotskypos (angle of sky
-        # relative to Camera coordinates) from which obs_lsst can
-        # infer the CCD-wide WCS.
-        sensor.header['RATEL'] = sensor.header['RA_DEG']
-        sensor.header['DECTEL'] = sensor.header['DEC_DEG']
+        sensor.header['RAFTBAY'] = raft
+        sensor.header['CCDSLOT'] = ccdslot
 
-        # The rotation angle has different names in different versions
-        try:
-            sensor.header['ROTANGLE'] = sensor.header['ROTANGZ']
-        except KeyError:
-            try:
-                sensor.header['ROTANGLE'] = sensor.header['ROTANG']
-            except KeyError as e:
-                raise(e)
+        sensor.header['RASTART'] = sensor.header['RA_DEG']
+        sensor.header['DECSTART'] = sensor.header['DEC_DEG']
+        sensor.header['ROTSTART'] = sensor.header['ROTANG']
+
+        sensor.header['RA'] = sensor.header['RA_DEG']
+        sensor.header['DEC'] = sensor.header['DEC_DEG']
+        sensor.header['ROTPA'] = sensor.header['ROTANG']
+        sensor.header['ROTPOS'] = sensor.header['ROTANG']
 
         # Transpose the image to fulfill the geometry of postISRCCD by obs_lsst
         sensor.data = sensor.data.T
 
-        outfile = self.mef_filename_eimage(phosim_eimg_file, out_dir=out_dir)
-        sensor.writeto(outfile, overwrite=True)
+        # get a filename from TELCODE, CONTRLLR,  DAYOBS, SEQNUM , raft, ccdslot
+        # eg. MC_H_20200825_000032_R00_SW0.fits
+        filename = '%s_%s_%s.fits'%(OBSID, raft, ccdslot)
+        filename = os.path.join(out_dir, filename)
 
-    @staticmethod
-    def mef_filename_eimage(phosim_eimg_file, out_dir='.'):
-        """Construct the filename of the output file based on a phosim single
-        eimage filename."""
-
-        basename = os.path.basename(phosim_eimg_file)
-        outfile = os.path.join(out_dir, basename)
-        # astropy's gzip compression is very slow, so remove any .gz
-        # extension from the computed output filename and gzip the
-        # files later.
-        if outfile.endswith('.gz'):
-            outfile = outfile[:-len('.gz')]
-        return outfile
+        # save the FITS file
+        sensor.writeto(filename, overwrite=True)
+        print('Saved as %s'%filename)
