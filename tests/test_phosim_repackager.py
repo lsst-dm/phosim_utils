@@ -44,6 +44,7 @@ class TestPhoSimRepackager(unittest.TestCase):
 
         self.test_data_dir = os.path.join(test_dir, "testData")
         self.base_eimg_file_name = "lsst_e_9006001_f1_R22_S00_E000.fits"
+        self.repackaged_eimg_file_name = "MC_H_20211231_006001_R22_S00.fits"
         self.eimg_file_path = os.path.join(
             self.test_data_dir, "%s.gz" % self.base_eimg_file_name)
 
@@ -78,7 +79,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 1)
 
-        file_name = self.base_eimg_file_name
+        file_name = self.repackaged_eimg_file_name
         self._check_repackaged_eimg_file(file_name)
 
     def _check_repackaged_eimg_file(self, file_name):
@@ -91,24 +92,14 @@ class TestPhoSimRepackager(unittest.TestCase):
 
         # Check the header imformation
         header = sensor.header
-        self.assertEqual(header['RAFTNAME'], 'R22')
-        self.assertEqual(header['SENSNAME'], 'S00')
-        self.assertEqual(header['ROTANGLE'], 0.0)
+        self.assertEqual(header['RAFTBAY'], 'R22')
+        self.assertEqual(header['CCDSLOT'], 'S00')
+        self.assertEqual(header['RA'], 0.0)
 
     def _get_num_of_file_in_dir(self, directory):
 
         return len([name for name in os.listdir(directory)
                    if os.path.isfile(os.path.join(directory, name))])
-
-    def test_mef_filename_eimage(self):
-
-        out_dir = os.path.join(os.sep, "path", "of", "output")
-
-        outfile = PhoSimRepackager.mef_filename_eimage(
-            self.eimg_file_path, out_dir=out_dir)
-
-        ans_outfile = os.path.join(out_dir, self.base_eimg_file_name)
-        self.assertEqual(outfile, ans_outfile)
 
 
 if __name__ == "__main__":
