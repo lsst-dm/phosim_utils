@@ -237,7 +237,7 @@ class PhoSimRepackager:
             sensor[0].header['CONTRLLR'] = CONTRLLR
             # Set sequence number from OBSID, eg. 9006001, taking
             # the last 6 digits
-            SEQNUM = int(sensor[0].header['OBSID'][-6:])
+            SEQNUM = int(sensor[0].header['RUNNUM'][-6:])
             sensor[0].header['SEQNUM'] = SEQNUM
 
             OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
@@ -338,7 +338,7 @@ class PhoSimRepackager:
 
         sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
         sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
-        sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
+        sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']   # eg. 9006002
         sensor[0].header['MJD-OBS'] = sensor[1].header['MJD-OBS']
         DATEOBS = astropy.time.Time(sensor[1].header['MJD-OBS'], format='mjd').isot
         sensor[0].header['DATE-OBS'] = DATEOBS
@@ -365,7 +365,7 @@ class PhoSimRepackager:
 
         sensor[0].header['TELCODE'] = TELCODE
         sensor[0].header['CONTRLLR'] = CONTRLLR
-        SEQNUM = int(sensor[0].header['OBSID'][-6:])
+        SEQNUM = int(sensor[0].header['RUNNUM'][-6:])  # eg. 006002
         sensor[0].header['SEQNUM'] = SEQNUM
 
         OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
@@ -506,7 +506,7 @@ class PhoSimRepackager:
 
         sensor.header['TELCODE'] = TELCODE
         sensor.header['CONTRLLR'] = CONTRLLR
-        SEQNUM = int(sensor.header['OBSID'][-6:])
+        SEQNUM = int(sensor.header['RUNNUM'][-6:])
         sensor.header['SEQNUM'] = SEQNUM
 
         OBSID = "%s_%s_%s_%s"%(TELCODE, CONTRLLR, DAYOBS, str(SEQNUM).zfill(6))
@@ -532,7 +532,7 @@ class PhoSimRepackager:
 
         # get a filename from TELCODE, CONTRLLR,  DAYOBS, SEQNUM , raft, ccdslot
         # eg. MC_H_20200825_000032_R00_SW0.fits
-        filename = '%s_%s_%s.fits'%(OBSID, raft, ccdslot)
+        filename = '%s_%s_%s_e.fits'%(OBSID, raft, ccdslot)
         filename = os.path.join(out_dir, filename)
 
         # save the FITS file
