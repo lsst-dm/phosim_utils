@@ -23,7 +23,7 @@
 from datetime import datetime
 import argparse
 
-from lsst.obs.lsst.phosim import PhosimMapper
+from lsst.obs.lsst import LsstCam
 import lsst.afw.image as afwImage
 import numpy as np
 
@@ -33,9 +33,12 @@ def main(just_wfs=False, detector_list=None):
     if (just_wfs is True) and (detector_list is not None):
         raise RuntimeError("--just_wfs and --detector_list are exclusive.")
 
-    camera = PhosimMapper().camera
+    camera = LsstCam().getCamera()
     if just_wfs:
-        ccd_list = [camera[name] for name in ["R00_S22", "R04_S20", "R44_S00", "R40_S02"]]
+        ccd_list = [camera[name] for name in ["R00_SW0", "R00_SW1",
+                                              "R04_SW0", "R04_SW1",
+                                              "R44_SW0", "R44_SW1",
+                                              "R40_SW0", 'R40_SW1']]
     elif (detector_list is not None):
         ccd_list = [camera[name] for name in detector_list]
     else:
@@ -44,10 +47,6 @@ def main(just_wfs=False, detector_list=None):
     for filt_name in 'ugrizy':
         for ccd in ccd_list:
             name = ccd.getName()
-            # I'm not sure how to deal with the split chips yet.
-            if 'A' in name or 'B' in name:
-                continue
-            print(name)
             CHIPID = "".join([c for c in name if c != "," and c != ":"])
             CHIPID = "_".join(CHIPID.split())
             image = afwImage.ImageF(ccd.getBBox())
@@ -56,13 +55,13 @@ def main(just_wfs=False, detector_list=None):
                 subim[:] = 1/amp.getGain()
                 print(amp.getName(), amp.getGain())
 
-            # need to flip the image to match the result of phosim repackager...
+            # need to flip the image to match the result of phosim repackager
             oldImageArray = image.array.copy()
             image.array[:] = np.flipud(oldImageArray)
 
             expInfo = afwImage.ExposureInfo()
-            inFilter = afwImage.Filter(filt_name)
-            expInfo.setFilter(inFilter)
+            inFilter = afwImage.FilterLabel(filt_name)
+            expInfo.setFilterLabel(inFilter)
             exp = afwImage.ExposureF(afwImage.MaskedImageF(image), expInfo)
             md = exp.getMetadata()
             md.set('CHIPID', CHIPID)
