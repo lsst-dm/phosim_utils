@@ -68,7 +68,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(num_file, 0)
 
         self.phoSim_repackager.process_visit_eimage(
-            self.test_data_dir_eimg, out_dir=self.tmp_test_dir, prefix="lsst"
+            self.test_data_dir_eimg, out_dir=self.tmp_test_dir, instName="lsst"
         )
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
@@ -113,7 +113,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(num_file, 0)
 
         self.phoSim_repackager.process_visit(
-            self.test_data_dir_amp, out_dir=self.tmp_test_dir, prefix="lsst"
+            self.test_data_dir_amp, out_dir=self.tmp_test_dir, instName="lsst"
         )
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
