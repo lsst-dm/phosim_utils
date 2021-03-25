@@ -13,17 +13,19 @@ parser.add_argument('--eimage', default=False, action='store_true',
                     help='repackage the eimage')
 parser.add_argument('--out_dir', type=str, default=None,
                     help="output directory")
-parser.add_argument('--prefix', default='lsst', type=str,
-                    help='prefix of PhoSim amplifier files (usually lsst or comcam)')
+parser.add_argument('--inst', default='lsst', type=str,
+                    help='Instrument to use: comcam or lsst. (default: lsst). \
+                    It corresponds to the prefix of PhoSim amplifier files (usually lsst or comcam).\
+                    Note: corner sensors are included in the lsst instrument.')
 parser.add_argument('--verbose', default=False, action='store_true',
                     help='print time to process the data each sensor')
 args = parser.parse_args()
 
-repackager = phosim_utils.PhoSimRepackager()
+repackager = phosim_utils.PhoSimRepackager(args.inst)
 
 if (args.eimage):
     repackager.process_visit_eimage(args.visit_dir, out_dir=args.out_dir,
-                                    prefix=args.prefix, verbose=args.verbose)
+                                    instName=args.inst, verbose=args.verbose)
 else:
     repackager.process_visit(args.visit_dir, out_dir=args.out_dir,
-                             prefix=args.prefix, verbose=args.verbose)
+                             instName=args.inst, verbose=args.verbose)
