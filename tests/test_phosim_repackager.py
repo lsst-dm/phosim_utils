@@ -27,7 +27,10 @@ import unittest
 import glob
 
 from lsst.utils import getPackageDir
-from lsst.phosim.utils.phosim_repackager import PhoSimRepackager
+from lsst.phosim.utils.phosim_repackager import (
+    PhoSimRepackager,
+    updateComCamSpecificData,
+)
 
 
 class TestPhoSimRepackager(unittest.TestCase):
@@ -36,7 +39,7 @@ class TestPhoSimRepackager(unittest.TestCase):
     def setUp(self):
 
         self.phoSim_repackager = PhoSimRepackager()
-        self.phoSim_repackager_comcam = PhoSimRepackager('comcam')
+        self.phoSim_repackager_comcam = PhoSimRepackager("comcam")
 
         package_dir = getPackageDir("phosim_utils")
         test_dir = os.path.join(package_dir, "tests")
@@ -56,14 +59,18 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.repackaged_amp_file_name_comcam = "CC_H_20000217_006001_R22_S20.fits"
 
         self.eimg_file_path = os.path.join(
-            self.test_data_dir_eimg, "%s.gz" % self.base_eimg_file_name)
-        self.amp_file_paths = sorted(glob.glob(os.path.join(self.test_data_dir_amp,
-                                     'lsst_a_*')))
+            self.test_data_dir_eimg, "%s.gz" % self.base_eimg_file_name
+        )
+        self.amp_file_paths = sorted(
+            glob.glob(os.path.join(self.test_data_dir_amp, "lsst_a_*"))
+        )
 
         self.eimg_file_path_comcam = os.path.join(
-            self.test_data_dir_eimg, "%s.gz" % self.base_eimg_file_name_comcam)
-        self.amp_file_paths_comcam = sorted(glob.glob(os.path.join(self.test_data_dir_amp,
-                                            'comcam_a_*')))
+            self.test_data_dir_eimg, "%s.gz" % self.base_eimg_file_name_comcam
+        )
+        self.amp_file_paths_comcam = sorted(
+            glob.glob(os.path.join(self.test_data_dir_amp, "comcam_a_*"))
+        )
 
     def _make_dir(self, directory):
 
@@ -77,16 +84,16 @@ class TestPhoSimRepackager(unittest.TestCase):
     def test_phoSim_repackager_init(self):
 
         # controller is the same for both instruments
-        self.assertEqual(self.phoSim_repackager.CONTRLLR, 'H')
-        self.assertEqual(self.phoSim_repackager_comcam.CONTRLLR, 'H')
+        self.assertEqual(self.phoSim_repackager.CONTRLLR, "H")
+        self.assertEqual(self.phoSim_repackager_comcam.CONTRLLR, "H")
 
         # telescope code is different for each instrument
-        self.assertEqual(self.phoSim_repackager.telcode, 'MC')
-        self.assertEqual(self.phoSim_repackager_comcam.telcode, 'CC')
+        self.assertEqual(self.phoSim_repackager.telcode, "MC")
+        self.assertEqual(self.phoSim_repackager_comcam.telcode, "CC")
 
         # instrument name is different for each instrument
-        self.assertEqual(self.phoSim_repackager.instrument, 'lsstCam')
-        self.assertEqual(self.phoSim_repackager_comcam.instrument, 'comCam')
+        self.assertEqual(self.phoSim_repackager.instrument, "lsstCam")
+        self.assertEqual(self.phoSim_repackager_comcam.instrument, "comCam")
 
     def test_process_visit_eimage(self):
 
@@ -211,9 +218,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.repackage(
-            self.amp_file_paths, out_dir=self.tmp_test_dir
-        )
+        self.phoSim_repackager.repackage(self.amp_file_paths, out_dir=self.tmp_test_dir)
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 1)
@@ -241,6 +246,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["LSST_NUM"], "E2V-CCD250-370")
         self.assertEqual(header["OBSID"], "MC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
+        self.assertEqual(header["FILTER"], "g")
 
         # Check the amp header information
         header = hdul[1].header
@@ -286,6 +292,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["LSST_NUM"], "ITL-3800C-319")
         self.assertEqual(header["OBSID"], "CC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
+        self.assertEqual(header["FILTER"], "g_01")
 
         # Check the amp header information
         header = hdul[1].header
@@ -305,6 +312,24 @@ class TestPhoSimRepackager(unittest.TestCase):
                 if os.path.isfile(os.path.join(directory, name))
             ]
         )
+
+    def test_updateComCamSpecificData(self):
+
+        # update header for raw comcam amp file
+        hdul = fits.open(self.amp_file_paths_comcam[0])
+        input_header = hdul[0].header
+        self.assertEqual(input_header["FILTER"], "g")
+
+        # test that the header got updated
+        updated_header = updateComCamSpecificData(input_header)
+        self.assertEqual(updated_header["FILTER"], "g_01")
+
+        # Close the file
+        hdul.close()
+
+        # try updating header with unknown filter name
+        wrong_header = fits.Header({'FILTER': 'x'})
+        self.assertRaises(ValueError, updateComCamSpecificData, wrong_header)
 
 
 if __name__ == "__main__":
