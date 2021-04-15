@@ -93,7 +93,7 @@ class PhoSimRepackager:
     # observed (not simulated) data,  added via DM-27863
     # to obs_lsst translators/lsst.py
 
-    def __init__(self, instName="lsst"):
+    def __init__(self, instName="lsst", image_type="skyexp"):
         """
         Parameters
         ----------
@@ -105,6 +105,7 @@ class PhoSimRepackager:
         """
         # Use appropriate obs_lsst mapper camera object
         # and telescope code
+        self.image_type = image_type
         if instName == "lsst":
             self.camera = LsstCam().getCamera()
             self.telcode = "MC"  # Main Camera
@@ -264,7 +265,7 @@ class PhoSimRepackager:
         sensor[0].header["OBSID"] = OBSID
 
         sensor[0].header["TESTTYPE"] = "PHOSIM"
-        sensor[0].header["IMGTYPE"] = "SKYEXP"
+        sensor[0].header["IMGTYPE"] = self.image_type.upper()  # "SKYEXP", "BIAS", "FLAT", "DARK"
         sensor[0].header["RAFTBAY"] = raft
         sensor[0].header["CCDSLOT"] = ccdslot
         sensor[0].header["RASTART"] = sensor[1].header["RA_DEG"]
