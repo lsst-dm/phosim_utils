@@ -261,6 +261,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["AMPID"], "C10")
         self.assertEqual(header["CCDID"], "R22_S22")
         self.assertEqual(header["EXTNAME"], "Segment10")
+        self.assertEqual(header["ROTANG"], 90)
 
         # Close the file
         hdul.close()

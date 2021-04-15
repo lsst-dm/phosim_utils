@@ -207,8 +207,9 @@ class PhoSimRepackager:
             hdu.header["DETSEC"] = noao_section_keyword(
                 amp.getBBox(), flipx=amp.getRawFlipX(), flipy=amp.getRawFlipY()
             )
-            hdu.header["ROTANG"] += 90.  # add 90 degrees to the rotation angle
+            # Add 90 degrees to the rotation angle
             # to set correct WCS
+            hdu.header["ROTANG"] += 90.
 
             # Set the filter information.
             # For lsstCam, the phosim filter names (ugrizy)
