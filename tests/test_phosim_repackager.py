@@ -39,6 +39,7 @@ class TestPhoSimRepackager(unittest.TestCase):
     def setUp(self):
 
         self.phoSim_repackager = PhoSimRepackager()
+        self.phoSim_repackager_calib = PhoSimRepackager(instName='lsst', image_type='dark')
         self.phoSim_repackager_comcam = PhoSimRepackager("comcam")
 
         package_dir = getPackageDir("phosim_utils")
@@ -94,6 +95,12 @@ class TestPhoSimRepackager(unittest.TestCase):
         # instrument name is different for each instrument
         self.assertEqual(self.phoSim_repackager.instrument, "lsstCam")
         self.assertEqual(self.phoSim_repackager_comcam.instrument, "comCam")
+
+        # image_type by default is skyexp
+        self.assertEqual(self.phoSim_repackager.image_type, "skyexp")
+
+        # image_type can be also dark, flat, bias
+        self.assertEqual(self.phoSim_repackager_calib.image_type, "dark")
 
     def test_process_visit_eimage(self):
 
@@ -247,6 +254,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["OBSID"], "MC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
         self.assertEqual(header["FILTER"], "g")
+        self.assertEqual(header["IMGTYPE"], "SKYEXP")
 
         # Check the amp header information
         header = hdul[1].header
@@ -293,11 +301,59 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["OBSID"], "CC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
         self.assertEqual(header["FILTER"], "g_01")
+        self.assertEqual(header["IMGTYPE"], "SKYEXP")
 
         # Check the amp header information
         header = hdul[1].header
         self.assertEqual(header["AMPID"], "C10")
         self.assertEqual(header["CCDID"], "R22_S20")
+        self.assertEqual(header["EXTNAME"], "Segment10")
+
+        # Close the file
+        hdul.close()
+
+    def test_repackage_amp_calib_lsst(self):
+
+        num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
+        self.assertEqual(num_file, 0)
+
+        self.phoSim_repackager_calib.repackage(
+            self.amp_file_paths, out_dir=self.tmp_test_dir
+        )
+
+        num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
+        self.assertEqual(num_file, 1)
+
+        file_name = self.repackaged_amp_file_name
+        self._check_repackaged_amp_calib_lsst(file_name)
+
+    def _check_repackaged_amp_calib_lsst(self, file_name):
+
+        amp_file = os.path.join(self.tmp_test_dir, file_name)
+        hdul = fits.open(amp_file)
+
+        # Check the amp has correct shape
+        # for lsst, R22 is ITL
+        self.assertEqual(hdul[1].data.shape, (2048, 576))
+
+        # Check the number of amps: main header
+        # plus 16 amps
+        self.assertEqual(len(hdul), 17)
+
+        # Check the main header information
+        header = hdul[0].header
+        self.assertEqual(header["RAFTBAY"], "R22")
+        self.assertEqual(header["CCDSLOT"], "S22")
+        self.assertEqual(header["LSST_NUM"], "E2V-CCD250-370")
+        self.assertEqual(header["OBSID"], "MC_H_20000217_006001")
+        self.assertEqual(header["RA"], 0.0)
+        self.assertEqual(header["FILTER"], "g")
+        self.assertEqual(header["IMGTYPE"], "DARK")
+
+        # Check the amp header information
+        header = hdul[1].header
+        self.assertEqual(header["AMPID"], "C10")
+        self.assertEqual(header["CCDID"], "R22_S22")
         self.assertEqual(header["EXTNAME"], "Segment10")
 
         # Close the file
