@@ -93,7 +93,7 @@ class PhoSimRepackager:
     # observed (not simulated) data,  added via DM-27863
     # to obs_lsst translators/lsst.py
 
-    def __init__(self, instName="lsst"):
+    def __init__(self, instName="lsst", image_type="skyexp"):
         """
         Parameters
         ----------
@@ -101,10 +101,17 @@ class PhoSimRepackager:
             Instrument to use: comcam or lsst. Corresponds
             to the prefix of phosim amplifier files.
             Note: corner sensors are included in lsst.
-            (the default is 'lsst')
+            (the default is 'lsst').
+        image_type: str, optional
+            Image type  corresponds to the IMGTYPE header,
+            those approved by obs_lsst metadata translator
+            for lsstCam or comCam are SKYEXP, FLAT, DARK,
+            BIAS. (the default is 'skyexp').
         """
         # Use appropriate obs_lsst mapper camera object
-        # and telescope code
+        # and telescope code, and declare the image type
+        # to be stored in the  header.
+        self.image_type = image_type
         if instName == "lsst":
             self.camera = LsstCam().getCamera()
             self.telcode = "MC"  # Main Camera
@@ -264,7 +271,7 @@ class PhoSimRepackager:
         sensor[0].header["OBSID"] = OBSID
 
         sensor[0].header["TESTTYPE"] = "PHOSIM"
-        sensor[0].header["IMGTYPE"] = "SKYEXP"
+        sensor[0].header["IMGTYPE"] = self.image_type.upper()  # "SKYEXP", "BIAS", "FLAT", "DARK"
         sensor[0].header["RAFTBAY"] = raft
         sensor[0].header["CCDSLOT"] = ccdslot
         sensor[0].header["RASTART"] = sensor[1].header["RA_DEG"]
