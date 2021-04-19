@@ -101,10 +101,16 @@ class PhoSimRepackager:
             Instrument to use: comcam or lsst. Corresponds
             to the prefix of phosim amplifier files.
             Note: corner sensors are included in lsst.
-            (the default is 'lsst')
+            (the default is 'lsst').
+        image_type: str, optional
+            Image type  corresponds to the IMGTYPE header,
+            those approved by obs_lsst metadata translator
+            for lsstCam or comCam are SKYEXP, FLAT, DARK,
+            BIAS. (the default is 'skyexp').
         """
         # Use appropriate obs_lsst mapper camera object
-        # and telescope code
+        # and telescope code, and declare the image type
+        # to be stored in the  header.
         self.image_type = image_type
         if instName == "lsst":
             self.camera = LsstCam().getCamera()
