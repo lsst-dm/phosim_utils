@@ -22,9 +22,13 @@ parser.add_argument('--verbose', default=False, action='store_true',
 parser.add_argument('--image_type', type=str, default='skyexp',
                     help="image type, passed as 'IMGTYPE': skyexp, dark,\
                     flat, or bias (default: skyexp)")
+parser.add_argument('--focusz', type=float, default=0,
+                    help="The defocal position. For extra-focal it is -1500, for intra-focal 1500,\
+                    for in-focus images 0. (default: 0")
 args = parser.parse_args()
 
-repackager = phosim_utils.PhoSimRepackager(instName=args.inst, image_type=args.image_type)
+repackager = phosim_utils.PhoSimRepackager(instName=args.inst, image_type=args.image_type,
+                                           focusz=args.focusz)
 
 if (args.eimage):
     repackager.process_visit_eimage(args.visit_dir, out_dir=args.out_dir,
