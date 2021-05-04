@@ -93,7 +93,7 @@ class PhoSimRepackager:
     # observed (not simulated) data,  added via DM-27863
     # to obs_lsst translators/lsst.py
 
-    def __init__(self, instName="lsst", image_type="skyexp"):
+    def __init__(self, instName="lsst", image_type="skyexp", focusz=0):
         """
         Parameters
         ----------
@@ -107,11 +107,23 @@ class PhoSimRepackager:
             those approved by obs_lsst metadata translator
             for lsstCam or comCam are SKYEXP, FLAT, DARK,
             BIAS. (the default is 'skyexp').
+        focusz: int, optional
+            The position of the main camera hexapod in micrometers.
+            For in-focus image it is 0.
+            Assuming defocal distance of d micrometers,
+            for extra-focal image it would be -d,
+            and for intra-focal image it would be d.
+            Added to the repackaged image
+            primary image header as FOCUSZ.
+            (the default is 0).
+
+        (the default is 0)
         """
         # Use appropriate obs_lsst mapper camera object
         # and telescope code, and declare the image type
         # to be stored in the  header.
         self.image_type = image_type
+        self.focusz = focusz
         if instName == "lsst":
             self.camera = LsstCam().getCamera()
             self.telcode = "MC"  # Main Camera
@@ -230,6 +242,8 @@ class PhoSimRepackager:
         sensor[0].header["EXPTIME"] = sensor[1].header["EXPTIME"]
         sensor[0].header["DARKTIME"] = sensor[1].header["DARKTIME"]
 
+        # Add keyword for defocal position, FOCUSZ
+        sensor[0].header["FOCUSZ"] = self.focusz
         # Call phosim OBSID as RUNNUM to be handled properly
         # by obs_lsst LsstCam or LsstComCam translators
         sensor[0].header["RUNNUM"] = sensor[1].header["OBSID"]
