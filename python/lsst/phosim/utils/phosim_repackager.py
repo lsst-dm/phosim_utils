@@ -207,9 +207,9 @@ class PhoSimRepackager:
             hdu.header["DETSEC"] = noao_section_keyword(
                 amp.getBBox(), flipx=amp.getRawFlipX(), flipy=amp.getRawFlipY()
             )
-            # Add 90 degrees to the rotation angle
+            # Offset the rotation angle by 90 degrees
             # to set correct WCS
-            hdu.header["ROTANG"] += 90.
+            hdu.header["ROTANG"] = 90 - hdu.header["ROTANG"]
 
             # Set the filter information.
             # For lsstCam, the phosim filter names (ugrizy)
@@ -411,7 +411,8 @@ class PhoSimRepackager:
         OBSID = f"{self.telcode}_{self.CONTRLLR}_{DAYOBS}_{SEQNUM:06d}"
         sensor.header["OBSID"] = OBSID
 
-        sensor.header["ROTANG"] += 90.  # add 90 degrees to match WCS
+        # offset by 90 degrees to match WCS
+        sensor.header["ROTANG"] = 90 - sensor.header["ROTANG"]
         sensor.header["TESTTYPE"] = "PHOSIM"
         sensor.header["IMGTYPE"] = "SKYEXP"
 
