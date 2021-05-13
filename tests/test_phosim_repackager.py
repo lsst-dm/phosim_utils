@@ -38,9 +38,12 @@ class TestPhoSimRepackager(unittest.TestCase):
 
     def setUp(self):
 
-        self.phoSim_repackager = PhoSimRepackager()
+        self.phoSim_repackager_lsstcam = PhoSimRepackager(instName='lsst',
+                                                          image_type="skyexp",
+                                                          focusz=-1500)
         self.phoSim_repackager_calib = PhoSimRepackager(instName='lsst', image_type='dark')
-        self.phoSim_repackager_comcam = PhoSimRepackager("comcam")
+        self.phoSim_repackager_comcam = PhoSimRepackager("comcam", image_type="skyexp",
+                                                         focusz=-1500)
 
         package_dir = getPackageDir("phosim_utils")
         test_dir = os.path.join(package_dir, "tests")
@@ -85,29 +88,35 @@ class TestPhoSimRepackager(unittest.TestCase):
     def test_phoSim_repackager_init(self):
 
         # controller is the same for both instruments
-        self.assertEqual(self.phoSim_repackager.CONTRLLR, "H")
+        self.assertEqual(self.phoSim_repackager_lsstcam.CONTRLLR, "H")
         self.assertEqual(self.phoSim_repackager_comcam.CONTRLLR, "H")
 
         # telescope code is different for each instrument
-        self.assertEqual(self.phoSim_repackager.telcode, "MC")
+        self.assertEqual(self.phoSim_repackager_lsstcam.telcode, "MC")
         self.assertEqual(self.phoSim_repackager_comcam.telcode, "CC")
 
         # instrument name is different for each instrument
-        self.assertEqual(self.phoSim_repackager.instrument, "lsstCam")
+        self.assertEqual(self.phoSim_repackager_lsstcam.instrument, "lsstCam")
         self.assertEqual(self.phoSim_repackager_comcam.instrument, "comCam")
 
         # image_type by default is skyexp
-        self.assertEqual(self.phoSim_repackager.image_type, "skyexp")
+        self.assertEqual(self.phoSim_repackager_lsstcam.image_type, "skyexp")
 
         # image_type can be also dark, flat, bias
         self.assertEqual(self.phoSim_repackager_calib.image_type, "dark")
+
+        # focusz is extra-focal, i.e -1500 for lsstcam and comcam test files
+        # but 0 for calibs
+        self.assertEqual(self.phoSim_repackager_lsstcam.focusz, -1500)
+        self.assertEqual(self.phoSim_repackager_comcam.focusz, -1500)
+        self.assertEqual(self.phoSim_repackager_calib.focusz, 0)
 
     def test_process_visit_eimage(self):
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.process_visit_eimage(
+        self.phoSim_repackager_lsstcam.process_visit_eimage(
             self.test_data_dir_eimg, out_dir=self.tmp_test_dir, instName="lsst"
         )
 
@@ -131,7 +140,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.repackage_eimage(
+        self.phoSim_repackager_lsstcam.repackage_eimage(
             self.eimg_file_path, out_dir=self.tmp_test_dir
         )
 
@@ -201,7 +210,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.process_visit(
+        self.phoSim_repackager_lsstcam.process_visit(
             self.test_data_dir_amp, out_dir=self.tmp_test_dir, instName="lsst"
         )
 
@@ -225,7 +234,8 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager.repackage(self.amp_file_paths, out_dir=self.tmp_test_dir)
+        self.phoSim_repackager_lsstcam.repackage(self.amp_file_paths,
+                                                 out_dir=self.tmp_test_dir)
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 1)
@@ -255,6 +265,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["RA"], 0.0)
         self.assertEqual(header["FILTER"], "g")
         self.assertEqual(header["IMGTYPE"], "SKYEXP")
+        self.assertEqual(header["FOCUSZ"], -1500)
 
         # Check the amp header information
         header = hdul[1].header
@@ -303,6 +314,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["RA"], 0.0)
         self.assertEqual(header["FILTER"], "g_01")
         self.assertEqual(header["IMGTYPE"], "SKYEXP")
+        self.assertEqual(header["FOCUSZ"], -1500)
 
         # Check the amp header information
         header = hdul[1].header
@@ -350,6 +362,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["RA"], 0.0)
         self.assertEqual(header["FILTER"], "g")
         self.assertEqual(header["IMGTYPE"], "DARK")
+        self.assertEqual(header["FOCUSZ"], 0)
 
         # Check the amp header information
         header = hdul[1].header
