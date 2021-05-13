@@ -22,9 +22,17 @@ parser.add_argument('--verbose', default=False, action='store_true',
 parser.add_argument('--image_type', type=str, default='skyexp',
                     help="image type, passed as 'IMGTYPE': skyexp, dark,\
                     flat, or bias (default: skyexp)")
+parser.add_argument('--focusz', type=float, default=0,
+                    help="The main hexapod position in micrometers. \
+                    For in-focus images it is 0 (default),\
+                    and assuming defocal distance of d (eg. 1500), \
+                    one convention is to set,\
+                    for extra-focal images focusz = -d, \
+                    for intra-focal images focuzs = +d ")
 args = parser.parse_args()
 
-repackager = phosim_utils.PhoSimRepackager(instName=args.inst, image_type=args.image_type)
+repackager = phosim_utils.PhoSimRepackager(instName=args.inst, image_type=args.image_type,
+                                           focusz=args.focusz)
 
 if (args.eimage):
     repackager.process_visit_eimage(args.visit_dir, out_dir=args.out_dir,
