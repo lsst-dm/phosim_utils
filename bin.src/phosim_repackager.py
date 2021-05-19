@@ -29,10 +29,12 @@ parser.add_argument('--focusz', type=float, default=0,
                     one convention is to set,\
                     for extra-focal images focusz = -d, \
                     for intra-focal images focuzs = +d ")
+parser.add_argument('--no-derotate', default=True, action='store_false',
+                    help='Do not derotate images.')
 args = parser.parse_args()
 
 repackager = phosim_utils.PhoSimRepackager(instName=args.inst, image_type=args.image_type,
-                                           focusz=args.focusz)
+                                           focusz=args.focusz, derotate=args.no_derotate)
 
 if (args.eimage):
     repackager.process_visit_eimage(args.visit_dir, out_dir=args.out_dir,

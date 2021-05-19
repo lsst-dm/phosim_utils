@@ -80,7 +80,8 @@ def updateComCamSpecificData(header):
     else:
         raise ValueError(
             f"This phosim filter:{phosimFilter} cannot \
-            be translated for comcam")
+            be translated for comcam"
+        )
 
 
 class PhoSimRepackager:
@@ -93,7 +94,7 @@ class PhoSimRepackager:
     # observed (not simulated) data,  added via DM-27863
     # to obs_lsst translators/lsst.py
 
-    def __init__(self, instName="lsst", image_type="skyexp", focusz=0):
+    def __init__(self, instName="lsst", image_type="skyexp", focusz=0, derotate=True):
         """
         Parameters
         ----------
@@ -116,14 +117,17 @@ class PhoSimRepackager:
             Added to the repackaged image
             primary image header as FOCUSZ.
             (the default is 0).
-
-        (the default is 0)
+        derotate: bool, optional
+            Derotate the WCS so that it matches the LSST camera geometry
+            (default is True)?
         """
         # Use appropriate obs_lsst mapper camera object
         # and telescope code, and declare the image type
         # to be stored in the  header.
         self.image_type = image_type
         self.focusz = focusz
+        self.derotate = derotate
+
         if instName == "lsst":
             self.camera = LsstCam().getCamera()
             self.telcode = "MC"  # Main Camera
@@ -221,7 +225,11 @@ class PhoSimRepackager:
             )
             # Offset the rotation angle by 90 degrees
             # to set correct WCS
-            hdu.header["ROTANG"] = 90 - hdu.header["ROTANG"]
+            hdu.header["ROTANG"] = (
+                90.0 - float(hdu.header["ROTANG"])
+                if self.derotate
+                else float(hdu.header["ROTANG"])
+            )
 
             # Set the filter information.
             # For lsstCam, the phosim filter names (ugrizy)
@@ -288,7 +296,9 @@ class PhoSimRepackager:
         sensor[0].header["OBSID"] = OBSID
 
         sensor[0].header["TESTTYPE"] = "PHOSIM"
-        sensor[0].header["IMGTYPE"] = self.image_type.upper()  # "SKYEXP", "BIAS", "FLAT", "DARK"
+        sensor[0].header[
+            "IMGTYPE"
+        ] = self.image_type.upper()  # "SKYEXP", "BIAS", "FLAT", "DARK"
         sensor[0].header["RAFTBAY"] = raft
         sensor[0].header["CCDSLOT"] = ccdslot
         sensor[0].header["RASTART"] = sensor[1].header["RA_DEG"]
@@ -425,8 +435,11 @@ class PhoSimRepackager:
         OBSID = f"{self.telcode}_{self.CONTRLLR}_{DAYOBS}_{SEQNUM:06d}"
         sensor.header["OBSID"] = OBSID
 
-        # offset by 90 degrees to match WCS
-        sensor.header["ROTANG"] = 90 - sensor.header["ROTANG"]
+        sensor.header["ROTANG"] = (
+            90.0 - float(sensor.header["ROTANG"])
+            if self.derotate
+            else float(sensor.header["ROTANG"])
+        )
         sensor.header["TESTTYPE"] = "PHOSIM"
         sensor.header["IMGTYPE"] = "SKYEXP"
 
