@@ -36,14 +36,22 @@ from lsst.phosim.utils.phosim_repackager import (
 class TestPhoSimRepackager(unittest.TestCase):
     """Test the PhoSim Repackager class."""
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
+        cls.phoSim_repackager_lsstcam = PhoSimRepackager(
+            instName="lsst", image_type="skyexp", focusz=-1500
+        )
+        cls.phoSim_repackager_calib = PhoSimRepackager(
+            instName="lsst", image_type="dark"
+        )
+        cls.phoSim_repackager_comcam = PhoSimRepackager(
+            "comcam", image_type="skyexp", focusz=-1500
+        )
+        cls.phoSim_repackager_comcam_derotate = PhoSimRepackager(
+            "comcam", image_type="skyexp", focusz=-1500, derotate=False
+        )
 
-        self.phoSim_repackager_lsstcam = PhoSimRepackager(instName='lsst',
-                                                          image_type="skyexp",
-                                                          focusz=-1500)
-        self.phoSim_repackager_calib = PhoSimRepackager(instName='lsst', image_type='dark')
-        self.phoSim_repackager_comcam = PhoSimRepackager("comcam", image_type="skyexp",
-                                                         focusz=-1500)
+    def setUp(self):
 
         package_dir = getPackageDir("phosim_utils")
         test_dir = os.path.join(package_dir, "tests")
@@ -90,14 +98,17 @@ class TestPhoSimRepackager(unittest.TestCase):
         # controller is the same for both instruments
         self.assertEqual(self.phoSim_repackager_lsstcam.CONTRLLR, "H")
         self.assertEqual(self.phoSim_repackager_comcam.CONTRLLR, "H")
+        self.assertEqual(self.phoSim_repackager_comcam_derotate.CONTRLLR, "H")
 
         # telescope code is different for each instrument
         self.assertEqual(self.phoSim_repackager_lsstcam.telcode, "MC")
         self.assertEqual(self.phoSim_repackager_comcam.telcode, "CC")
+        self.assertEqual(self.phoSim_repackager_comcam_derotate.telcode, "CC")
 
         # instrument name is different for each instrument
         self.assertEqual(self.phoSim_repackager_lsstcam.instrument, "lsstCam")
         self.assertEqual(self.phoSim_repackager_comcam.instrument, "comCam")
+        self.assertEqual(self.phoSim_repackager_comcam_derotate.instrument, "comCam")
 
         # image_type by default is skyexp
         self.assertEqual(self.phoSim_repackager_lsstcam.image_type, "skyexp")
@@ -109,7 +120,13 @@ class TestPhoSimRepackager(unittest.TestCase):
         # but 0 for calibs
         self.assertEqual(self.phoSim_repackager_lsstcam.focusz, -1500)
         self.assertEqual(self.phoSim_repackager_comcam.focusz, -1500)
+        self.assertEqual(self.phoSim_repackager_comcam_derotate.focusz, -1500)
         self.assertEqual(self.phoSim_repackager_calib.focusz, 0)
+
+        # Test derotate Flag
+        self.assertTrue(self.phoSim_repackager_lsstcam.derotate)
+        self.assertTrue(self.phoSim_repackager_comcam.derotate)
+        self.assertFalse(self.phoSim_repackager_comcam_derotate.derotate)
 
     def test_process_visit_eimage(self):
 
@@ -234,8 +251,9 @@ class TestPhoSimRepackager(unittest.TestCase):
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 0)
 
-        self.phoSim_repackager_lsstcam.repackage(self.amp_file_paths,
-                                                 out_dir=self.tmp_test_dir)
+        self.phoSim_repackager_lsstcam.repackage(
+            self.amp_file_paths, out_dir=self.tmp_test_dir
+        )
 
         num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
         self.assertEqual(num_file, 1)
@@ -290,9 +308,28 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(num_file, 1)
 
         file_name = self.repackaged_amp_file_name_comcam
-        self._check_repackaged_amp_file_comcam(file_name)
+        self._check_repackaged_amp_file_comcam(
+            file_name, derotate=self.phoSim_repackager_comcam.derotate
+        )
 
-    def _check_repackaged_amp_file_comcam(self, file_name):
+    def test_repackage_amp_image_comcam_derotate(self):
+
+        num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
+        self.assertEqual(num_file, 0)
+
+        self.phoSim_repackager_comcam_derotate.repackage(
+            self.amp_file_paths_comcam, out_dir=self.tmp_test_dir
+        )
+
+        num_file = self._get_num_of_file_in_dir(self.tmp_test_dir)
+        self.assertEqual(num_file, 1)
+
+        file_name = self.repackaged_amp_file_name_comcam
+        self._check_repackaged_amp_file_comcam(
+            file_name, derotate=self.phoSim_repackager_comcam_derotate.derotate
+        )
+
+    def _check_repackaged_amp_file_comcam(self, file_name, derotate):
 
         amp_file = os.path.join(self.tmp_test_dir, file_name)
         hdul = fits.open(amp_file)
@@ -321,6 +358,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["AMPID"], "C10")
         self.assertEqual(header["CCDID"], "R22_S20")
         self.assertEqual(header["EXTNAME"], "Segment10")
+        self.assertEqual(header["ROTANG"], 90 if derotate else 0)
 
         # Close the file
         hdul.close()
@@ -398,7 +436,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         hdul.close()
 
         # try updating header with unknown filter name
-        wrong_header = fits.Header({'FILTER': 'x'})
+        wrong_header = fits.Header({"FILTER": "x"})
         self.assertRaises(ValueError, updateComCamSpecificData, wrong_header)
 
 
