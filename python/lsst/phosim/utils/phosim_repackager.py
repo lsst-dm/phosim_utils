@@ -109,9 +109,9 @@ class PhoSimRepackager:
             for lsstCam or comCam are SKYEXP, FLAT, DARK,
             BIAS. (the default is 'skyexp').
         focusz: int, optional
-            The position of the main camera hexapod in micrometers.
+            The position of the main camera hexapod in millimeters.
             For in-focus image it is 0.
-            Assuming defocal distance of d micrometers,
+            Assuming defocal distance of d millimeters,
             for extra-focal image it would be -d,
             and for intra-focal image it would be d.
             Added to the repackaged image
