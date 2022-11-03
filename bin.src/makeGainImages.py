@@ -47,13 +47,13 @@ def main(just_wfs=False, detector_list=None):
     for filt_name in 'ugrizy':
         for ccd in ccd_list:
             name = ccd.getName()
+            print(f'Preparing gain images in filter {filt_name} for {name}')
             CHIPID = "".join([c for c in name if c != "," and c != ":"])
             CHIPID = "_".join(CHIPID.split())
             image = afwImage.ImageF(ccd.getBBox())
             for amp in ccd:
                 subim = afwImage.ImageF(image, amp.getBBox())
                 subim[:] = 1/amp.getGain()
-                print(amp.getName(), amp.getGain())
 
             # need to flip the image to match the result of phosim repackager
             oldImageArray = image.array.copy()
@@ -61,7 +61,7 @@ def main(just_wfs=False, detector_list=None):
 
             expInfo = afwImage.ExposureInfo()
             inFilter = afwImage.FilterLabel(filt_name)
-            expInfo.setFilterLabel(inFilter)
+            expInfo.setFilter(inFilter)
             exp = afwImage.ExposureF(afwImage.MaskedImageF(image), expInfo)
             md = exp.getMetadata()
             md.set('CHIPID', CHIPID)
