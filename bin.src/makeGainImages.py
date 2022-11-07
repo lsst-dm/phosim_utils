@@ -35,25 +35,34 @@ def main(just_wfs=False, detector_list=None):
 
     camera = LsstCam().getCamera()
     if just_wfs:
-        ccd_list = [camera[name] for name in ["R00_SW0", "R00_SW1",
-                                              "R04_SW0", "R04_SW1",
-                                              "R44_SW0", "R44_SW1",
-                                              "R40_SW0", 'R40_SW1']]
-    elif (detector_list is not None):
+        ccd_list = [
+            camera[name]
+            for name in [
+                "R00_SW0",
+                "R00_SW1",
+                "R04_SW0",
+                "R04_SW1",
+                "R44_SW0",
+                "R44_SW1",
+                "R40_SW0",
+                "R40_SW1",
+            ]
+        ]
+    elif detector_list is not None:
         ccd_list = [camera[name] for name in detector_list]
     else:
         ccd_list = camera
 
-    for filt_name in 'ugrizy':
+    for filt_name in "ugrizy":
         for ccd in ccd_list:
             name = ccd.getName()
-            print(f'Preparing gain images in filter {filt_name} for {name}')
+            print(f"Preparing gain images in filter {filt_name} for {name}")
             CHIPID = "".join([c for c in name if c != "," and c != ":"])
             CHIPID = "_".join(CHIPID.split())
             image = afwImage.ImageF(ccd.getBBox())
             for amp in ccd:
                 subim = afwImage.ImageF(image, amp.getBBox())
-                subim[:] = 1/amp.getGain()
+                subim[:] = 1 / amp.getGain()
 
             # need to flip the image to match the result of phosim repackager
             oldImageArray = image.array.copy()
@@ -64,27 +73,44 @@ def main(just_wfs=False, detector_list=None):
             expInfo.setFilter(inFilter)
             exp = afwImage.ExposureF(afwImage.MaskedImageF(image), expInfo)
             md = exp.getMetadata()
-            md.set('CHIPID', CHIPID)
+            md.set("CHIPID", CHIPID)
             # Set place holder date
-            md.set('MJD-OBS', 53005.0)
-            md.set('OBSTYPE', 'flat')
+            md.set("MJD-OBS", 53005.0)
+            md.set("OBSTYPE", "flat")
             # arbitrary for flats
-            md.set('EXPTIME', 100)
+            md.set("EXPTIME", 100)
             # need to be able to specify any filter
-            md.set('CALDATE', 53005.0)
+            md.set("CALDATE", 53005.0)
             # Add the CALIB_ID header card
-            md.set('CALIB_ID', 'raftName=%s detectorName=%s detector=%i filter=%s calibDate=%s' %
-                   (CHIPID.split('_')[0], CHIPID.split('_')[1], ccd.getId(), filt_name, datetime.now()))
+            md.set(
+                "CALIB_ID",
+                "raftName=%s detectorName=%s detector=%i filter=%s calibDate=%s"
+                % (
+                    CHIPID.split("_")[0],
+                    CHIPID.split("_")[1],
+                    ccd.getId(),
+                    filt_name,
+                    datetime.now(),
+                ),
+            )
             exp.setMetadata(md)
-            exp.writeFits("%(name)s_%(filter)s.fits"%({'name': CHIPID, 'filter': filt_name}))
+            exp.writeFits(
+                "%(name)s_%(filter)s.fits" % ({"name": CHIPID, "filter": filt_name})
+            )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Make fake flats using image gains')
-    parser.add_argument('--just_wfs', action='store_true',
-                        help='Generate fake flats for just wavefront sensing chips.')
-    parser.add_argument('--detector_list', nargs='+',
-                        help='Generate fake flats for the detector list. (e.g. R22_S11 R22_S10)')
+    parser = argparse.ArgumentParser(description="Make fake flats using image gains")
+    parser.add_argument(
+        "--just_wfs",
+        action="store_true",
+        help="Generate fake flats for just wavefront sensing chips.",
+    )
+    parser.add_argument(
+        "--detector_list",
+        nargs="+",
+        help="Generate fake flats for the detector list. (e.g. R22_S11 R22_S10)",
+    )
 
     args = parser.parse_args()
     main(just_wfs=args.just_wfs, detector_list=args.detector_list)
