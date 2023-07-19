@@ -30,6 +30,7 @@ from lsst.utils import getPackageDir
 from lsst.phosim.utils.phosim_repackager import (
     PhoSimRepackager,
     updateComCamSpecificData,
+    updateLsstCamSpecificData
 )
 
 
@@ -281,7 +282,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["LSST_NUM"], "E2V-CCD250-370")
         self.assertEqual(header["OBSID"], "MC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
-        self.assertEqual(header["FILTER"], "g")
+        self.assertEqual(header["FILTER"], "g_6")
         self.assertEqual(header["IMGTYPE"], "SKYEXP")
         self.assertEqual(header["FOCUSZ"], -1500)
 
@@ -398,7 +399,7 @@ class TestPhoSimRepackager(unittest.TestCase):
         self.assertEqual(header["LSST_NUM"], "E2V-CCD250-370")
         self.assertEqual(header["OBSID"], "MC_H_20000217_006001")
         self.assertEqual(header["RA"], 0.0)
-        self.assertEqual(header["FILTER"], "g")
+        self.assertEqual(header["FILTER"], "g_6")
         self.assertEqual(header["IMGTYPE"], "DARK")
         self.assertEqual(header["FOCUSZ"], 0)
 
@@ -438,6 +439,24 @@ class TestPhoSimRepackager(unittest.TestCase):
         # try updating header with unknown filter name
         wrong_header = fits.Header({"FILTER": "x"})
         self.assertRaises(ValueError, updateComCamSpecificData, wrong_header)
+
+    def test_updateLsstCamSpecificData(self):
+
+        # update header for raw comcam amp file
+        hdul = fits.open(self.amp_file_paths[0])
+        input_header = hdul[0].header
+        self.assertEqual(input_header["FILTER"], "g")
+
+        # test that the header got updated
+        updated_header = updateLsstCamSpecificData(input_header)
+        self.assertEqual(updated_header["FILTER"], "g_6")
+
+        # Close the file
+        hdul.close()
+
+        # try updating header with unknown filter name
+        wrong_header = fits.Header({"FILTER": "x"})
+        self.assertRaises(ValueError, updateLsstCamSpecificData, wrong_header)
 
 
 if __name__ == "__main__":
