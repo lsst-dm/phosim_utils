@@ -40,6 +40,53 @@ def noao_section_keyword(bbox, flipx=False, flipy=False):
     return "[%i:%i,%i:%i]" % (xmin, xmax, ymin, ymax)
 
 
+def updateLsstCamSpecificData(header):
+    """
+    Update LSSTCam specific data.
+    Currently translate phosim
+    filter name (one of u,g,r,i,z,y) to that appropriate
+    for obs_lsst. The list of currently accepted filters
+    can be checked for an LSSTCam repo for
+
+    butler query-dimension-records . physical_filter
+
+    Parameters
+    ----------
+    header : FITS header of a phosim output files.
+
+    Returns
+    --------
+    header : updated FITS header.
+
+    Raises
+    ------
+    ValueError
+        Not possible to update the header due to
+        incorrect filter name.
+    """
+    phosim_to_lsstcam = {
+        "u": "24",
+        "g": "6",
+        "r": "57",
+        "i": "39",
+        "z": "20",
+        "y": "10",
+    }
+
+    phosimFilter = header["FILTER"]
+
+    # test if filter can be translated
+    if phosimFilter in phosim_to_lsstcam.keys():
+        suffix = phosim_to_lsstcam[phosimFilter]
+        header["FILTER"] = f"{phosimFilter}_{suffix}"
+        return header  # return updated FITS header
+    else:
+        raise ValueError(
+            f"This phosim filter:{phosimFilter} cannot \
+            be translated for LSSTCam"
+        )
+
+
 def updateComCamSpecificData(header):
     """
     Update comCam specific data.
@@ -232,11 +279,14 @@ class PhoSimRepackager:
             )
 
             # Set the filter information.
-            # For lsstCam, the phosim filter names (ugrizy)
-            # are appropriate, but for comCam they need
-            # to have a different name as in obs_lsst filters.py
+            # Both for comCam abd lsstCam the physical_filter needs
+            # to have names compatible with obs_lsst filters.py
+            # phosim filter names (ugrizy) do not correspond to
+            # physical_filter names known by obs_lsst.
             if self.instrument == "comCam":
                 hdu.header = updateComCamSpecificData(hdu.header)
+            elif self.instrument == "lsstCam":
+                hdu.header = updateLsstCamSpecificData(hdu.header)
 
             # Remove the incorrect BIASSEC keyword that phosim writes
             try:
@@ -403,11 +453,14 @@ class PhoSimRepackager:
         ).mjd
 
         # Set the filter information.
-        # For lsstCam, the phosim filter names (ugrizy)
-        # are appropriate, but for comCam they need
-        # to have a different name as in obs_lsst filters.py
+        # Both for comCam abd lsstCam the physical_filter needs
+        # to have names compatible with obs_lsst filters.py
+        # phosim filter names (ugrizy) do not correspond to
+        # physical_filter names known by obs_lsst.
         if self.instrument == "comCam":
             sensor.header = updateComCamSpecificData(sensor.header)
+        elif self.instrument == "lsstCam":
+            sensor.header = updateLsstCamSpecificData(sensor.header)
 
         serial = detectors.getSerial()  # eg. ITL-4400B-029
         CCD_MANU, CCD_TYPE, CCD_NUM = serial.split("-")
