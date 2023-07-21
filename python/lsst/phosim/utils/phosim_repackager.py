@@ -48,7 +48,7 @@ def updateLsstCamSpecificData(header):
     for obs_lsst. The list of currently accepted filters
     can be checked for an LSSTCam repo for
 
-    butler query-dimension-records . physical_filter
+    butler query-dimension-records $REPO_DIR physical_filter
 
     Parameters
     ----------
@@ -279,9 +279,9 @@ class PhoSimRepackager:
             )
 
             # Set the filter information.
-            # Both for comCam abd lsstCam the physical_filter needs
-            # to have names compatible with obs_lsst filters.py
-            # phosim filter names (ugrizy) do not correspond to
+            # Both for comCam and lsstCam the physical_filter needs
+            # to have names compatible with obs_lsst filters.
+            # Phosim filter names (ugrizy) do not correspond to
             # physical_filter names known by obs_lsst.
             if self.instrument == "comCam":
                 hdu.header = updateComCamSpecificData(hdu.header)
@@ -453,9 +453,9 @@ class PhoSimRepackager:
         ).mjd
 
         # Set the filter information.
-        # Both for comCam abd lsstCam the physical_filter needs
-        # to have names compatible with obs_lsst filters.py
-        # phosim filter names (ugrizy) do not correspond to
+        # Both for comCam and lsstCam the physical_filter needs
+        # to have names compatible with obs_lsst filters.
+        # Phosim filter names (ugrizy) do not correspond to
         # physical_filter names known by obs_lsst.
         if self.instrument == "comCam":
             sensor.header = updateComCamSpecificData(sensor.header)
