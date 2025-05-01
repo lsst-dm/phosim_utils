@@ -5,24 +5,32 @@ on:
   - push
   - pull_request
 
+env:
+  HOME: /home/lsst
+
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/lsst/scipipe:w_latest
-      # The GitHub runner is running under user, with UID: 1001 and GID: 116
-      options: --user 1001
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Build the package
-        env:
-          LSST_STACK: /opt/lsst/software/stack
-          STACK_VERSION: current
+      - name: Setup Environment
+        run: |
+          cd $HOME
+          echo "source /opt/lsst/software/stack/loadLSST.bash" >> .bashrc
+          echo "setup lsst_distrib" >> .bashrc
+          echo "cd $HOME" >> $HOME/.bashrc
+      - name: Checkout code
         shell: bash -l {0}
         run: |
-          source $LSST_STACK/loadLSST.bash
-          setup -k -r . -t $STACK_VERSION
+          git clone https://github.com/${GITHUB_REPOSITORY}
+          cd phosim_utils
+          echo "cd ${PWD}" >> $HOME/.bashrc
+          echo "setup -k -r . -t current" >> $HOME/.bashrc
+
+      - name: Scons
+        shell: bash -l {0}
+        run: |
           scons
 
       - name: Archive the test results
